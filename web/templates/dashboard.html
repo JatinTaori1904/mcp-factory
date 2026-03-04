@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — MCP Factory{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">Your MCP server control center</p>
+    </div>
+    <a href="/create" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Server
+    </a>
+</div>
+
+<div class="stats-bar">
+    <div class="stat-card">
+        <div class="stat-icon purple">🏭</div>
+        <div class="stat-info">
+            <span class="stat-value">{{ server_count }}</span>
+            <span class="stat-label">Servers</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green">📦</div>
+        <div class="stat-info">
+            <span class="stat-value">{{ template_count }}</span>
+            <span class="stat-label">Templates</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon amber">🔑</div>
+        <div class="stat-info">
+            <span class="stat-value">{{ api_count }}</span>
+            <span class="stat-label">APIs</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon pink">🔧</div>
+        <div class="stat-info">
+            <span class="stat-value">{{ total_tools }}</span>
+            <span class="stat-label">Total Tools</span>
+        </div>
+    </div>
+</div>
+
+<p class="section-title">Your Servers</p>
+
+<div id="server-list">
+    {% include "partials/server_list.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ server.name }} — MCP Factory{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ server.name }}</h1>
+        <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+            <span class="badge badge-{{ server.language }}">{{ server.language }}</span>
+            <span class="badge badge-tools">📦 {{ server.template }}</span>
+            <span class="badge badge-tools">🔧 {{ server.tools | length }} tools</span>
+        </div>
+    </div>
+    <a href="/" class="btn btn-ghost">← Back</a>
+</div>
+
+<div class="detail-grid">
+    <div class="detail-card">
+        <h3>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Prompt
+        </h3>
+        <p>{{ server.prompt }}</p>
+    </div>
+
+    <div class="detail-card">
+        <h3>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Output Path
+        </h3>
+        <code>{{ server.output_path }}</code>
+    </div>
+
+    <div class="detail-card">
+        <h3>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            Tools
+        </h3>
+        <ul class="tool-list">
+            {% for tool in server.tools %}
+            <li><code>{{ tool }}</code></li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="detail-card">
+        <h3>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Created
+        </h3>
+        <p>{{ server.created_at }}</p>
+    </div>
+
+    <div class="detail-card" style="grid-column: 1 / -1;">
+        <h3>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Quick Start
+        </h3>
+        <pre><code>cd {{ server.output_path }}
+{{ "npm install && npm start" if server.language == "typescript" else "pip install -e . && python -m server" }}</code></pre>
+    </div>
+</div>
+
+<div class="detail-actions">
+    <a href="/" class="btn">← Back to Dashboard</a>
+    <button class="btn btn-danger"
+            hx-delete="/api/servers/{{ server.name }}"
+            hx-target="body"
+            hx-confirm="Delete '{{ server.name }}'? This will also remove generated files."
+            hx-on::after-request="if(event.detail.successful) window.location='/'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Delete Server
+    </button>
+</div>
+{% endblock %}

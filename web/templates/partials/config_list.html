@@ -1,0 +1,28 @@
+{% if servers %}
+<p class="section-title">Configured Servers</p>
+<div class="server-grid">
+    {% for name in servers %}
+    <div class="card" id="config-{{ name }}">
+        <div class="card-header">
+            <h3>{{ name }}</h3>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-sm btn-danger"
+                    hx-delete="/api/config/{{ name }}"
+                    hx-target="#config-{{ name }}"
+                    hx-swap="outerHTML"
+                    hx-confirm="Remove {{ name }} from Claude config?">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                Remove
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <span class="empty-state-icon">⚙️</span>
+    <h3>No servers in Claude config</h3>
+    <p class="dim">Export your servers or create new ones first.</p>
+</div>
+{% endif %}

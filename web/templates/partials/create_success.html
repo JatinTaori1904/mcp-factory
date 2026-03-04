@@ -1,0 +1,84 @@
+<div class="result-card success">
+    <h2>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Server Created: {{ server_name }}
+    </h2>
+
+    <div class="result-meta">
+        <span class="badge badge-{{ language }}">{{ language }}</span>
+        <span class="badge badge-tools">📦 {{ template }}</span>
+        <span class="badge badge-tools">🔧 {{ tool_count }} tools</span>
+    </div>
+
+    <div class="result-section">
+        <h3>Generated Tools</h3>
+        <ul class="tool-list">
+            {% for tool in tools %}
+            <li>
+                <code>{{ tool.name }}</code>
+                <span class="dim"> — {{ tool.description[:80] }}</span>
+                {% if tool.annotations.read_only %}
+                    <span class="badge badge-small">read-only</span>
+                {% else %}
+                    <span class="badge badge-small badge-warn">read/write</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    {% if api_info %}
+    <div class="result-section">
+        <h3>🔑 API Detected: {{ api_info.display_name }}</h3>
+        <p>Auth: <span class="badge badge-small">{{ api_info.auth_type }}</span> · Env: <code>{{ api_info.env_var_name }}</code></p>
+        <p><a href="{{ api_info.key_url }}" target="_blank" class="link">Get your API key →</a></p>
+    </div>
+    {% endif %}
+
+    {% if validation %}
+    <div class="result-section">
+        {% if validation.is_valid %}
+        <p>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Validation passed
+        </p>
+        {% else %}
+        <p>⚠ Validation warnings:</p>
+        <ul>
+            {% for w in validation.warnings %}
+            <li>{{ w }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if review %}
+    <div class="result-section">
+        <h3>Code Review:
+            {% if review.score >= 8 %}
+                <span class="score-good">{{ review.score }}/10</span>
+            {% elif review.score >= 5 %}
+                <span class="score-ok">{{ review.score }}/10</span>
+            {% else %}
+                <span class="score-bad">{{ review.score }}/10</span>
+            {% endif %}
+        </h3>
+        <p>{{ review.summary }}</p>
+    </div>
+    {% endif %}
+
+    <div class="result-section">
+        <h3>Next Steps</h3>
+        <pre><code>cd {{ output_path }}
+{{ "npm install" if language == "typescript" else "pip install -e ." }}
+{{ "npm start" if language == "typescript" else "python -m server" }}</code></pre>
+        <p class="dim" style="margin-top: 0.75rem;">✓ Already added to Claude Desktop config — restart Claude to use.</p>
+    </div>
+
+    <div class="result-actions">
+        <a href="/servers/{{ server_name }}" class="btn btn-primary">View Details</a>
+        <a href="/create" class="btn">Create Another</a>
+        <a href="/" class="btn btn-ghost">← Dashboard</a>
+    </div>
+</div>

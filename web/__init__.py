@@ -1,0 +1,1 @@
+"""MCP Factory — Web Dashboard."""

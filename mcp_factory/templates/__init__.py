@@ -1,0 +1,1 @@
+"""MCP Templates package."""

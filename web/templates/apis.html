@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Supported APIs — MCP Factory{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Supported APIs</h1>
+        <p class="page-subtitle">Mention any API name in your prompt — MCP Factory auto-generates auth code, env vars, and setup instructions.</p>
+    </div>
+</div>
+
+<div class="table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>API</th>
+                <th>Auth Type</th>
+                <th>Environment Variable</th>
+                <th>Free Tier</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for api in apis %}
+            <tr>
+                <td><strong>{{ api.display_name }}</strong></td>
+                <td><span class="badge badge-small">{{ api.auth_type }}</span></td>
+                <td><code>{{ api.env_var }}</code></td>
+                <td>
+                    {% if api.free_tier %}
+                        <span style="color: var(--success);">✓ Free</span>
+                    {% else %}
+                        <span style="color: var(--text-muted);">Paid</span>
+                    {% endif %}
+                </td>
+                <td><a href="{{ api.key_url }}" target="_blank" class="link">Get key →</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

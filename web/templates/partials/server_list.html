@@ -1,0 +1,42 @@
+{% if servers %}
+<div class="server-grid">
+    {% for server in servers %}
+    <div class="card server-card" id="server-{{ server.name }}">
+        <div class="card-header">
+            <h3>{{ server.name }}</h3>
+            <span class="badge badge-{{ server.language }}">{{ server.language }}</span>
+        </div>
+        <div class="card-body">
+            <p class="template-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                {{ server.template }}
+            </p>
+            <p class="meta">
+                🔧 {{ server.tool_count }} tools · {{ server.created_at }}
+            </p>
+        </div>
+        <div class="card-actions">
+            <a href="/servers/{{ server.name }}" class="btn btn-sm">
+                View Details
+            </a>
+            <button class="btn btn-sm btn-danger"
+                    hx-delete="/api/servers/{{ server.name }}"
+                    hx-target="#server-list"
+                    hx-confirm="Delete '{{ server.name }}'? This removes generated files too.">
+                Delete
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <span class="empty-state-icon">🏭</span>
+    <h3>No servers yet</h3>
+    <p class="dim">Create your first MCP server — describe what you need, and we'll generate the code.</p>
+    <a href="/create" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Create Your First Server
+    </a>
+</div>
+{% endif %}
