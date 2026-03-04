@@ -36,3 +36,7 @@ Thumbs.db
 # MCP Factory local data
 ~/.mcpfactory/
 output/
+
+# Private docs (not for GitHub)
+DEVELOPER_HANDBOOK.md
+PROJECT_BREAKDOWN.md

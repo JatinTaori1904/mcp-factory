@@ -1,5 +1,8 @@
 ﻿"""MCP Factory CLI — Main entry point."""
 
+import shutil
+import subprocess
+import sys
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -12,6 +15,81 @@ from mcp_factory.validator.checker import MCPValidator
 from mcp_factory.generator.api_registry import get_supported_apis
 from mcp_factory.llm.interactive import PromptRefiner, is_prompt_vague
 from mcp_factory.config import add_server_to_config, remove_server_from_config, export_all_servers, get_claude_config_path, generate_config_snippet
+
+
+def _get_version(cmd: str) -> str | None:
+    """Return the version string for a CLI tool, or None if not found."""
+    path = shutil.which(cmd)
+    if not path:
+        return None
+    try:
+        result = subprocess.run(
+            [path, "--version"], capture_output=True, text=True, timeout=10,
+        )
+        return result.stdout.strip().split("\n")[0]
+    except Exception:
+        return None
+
+
+def _check_prerequisites(language: str, console: Console) -> bool:
+    """Check that required runtimes are installed for the target language.
+
+    Returns True if all prerequisites are met, False otherwise.
+    """
+    if language == "typescript":
+        node_ver = _get_version("node")
+        npm_ver = _get_version("npm")
+
+        if not node_ver or not npm_ver:
+            missing = []
+            if not node_ver:
+                missing.append("Node.js")
+            if not npm_ver:
+                missing.append("npm")
+
+            console.print(Panel(
+                f"[bold red]Missing prerequisites:[/bold red] {', '.join(missing)}\n\n"
+                f"TypeScript MCP servers require [bold]Node.js 18+[/bold] and [bold]npm[/bold].\n\n"
+                f"[bold]Install Node.js:[/bold]\n"
+                f"  • Windows: [cyan]winget install OpenJS.NodeJS.LTS[/cyan]\n"
+                f"  • macOS:   [cyan]brew install node[/cyan]\n"
+                f"  • Linux:   [cyan]curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo bash -[/cyan]\n"
+                f"  • All:     [cyan]https://nodejs.org[/cyan]\n\n"
+                f"After installing, restart your terminal and try again.\n"
+                f"Run [bold]mcpfactory doctor[/bold] to verify your environment.",
+                title="⚠️  Prerequisites Not Met",
+                border_style="red",
+            ))
+            return False
+
+        # Check Node.js version >= 18
+        try:
+            major = int(node_ver.lstrip("v").split(".")[0])
+            if major < 18:
+                console.print(Panel(
+                    f"[bold yellow]Node.js version too old:[/bold yellow] {node_ver}\n\n"
+                    f"TypeScript MCP servers require [bold]Node.js 18+[/bold].\n"
+                    f"Please update Node.js at [cyan]https://nodejs.org[/cyan].",
+                    title="⚠️  Update Required",
+                    border_style="yellow",
+                ))
+                return False
+        except (ValueError, IndexError):
+            pass  # Can't parse version — proceed anyway
+
+    elif language == "python":
+        py_ver = sys.version_info
+        if py_ver < (3, 10):
+            console.print(Panel(
+                f"[bold yellow]Python version too old:[/bold yellow] {sys.version.split()[0]}\n\n"
+                f"Python MCP servers require [bold]Python 3.10+[/bold].\n"
+                f"Download at [cyan]https://python.org[/cyan].",
+                title="⚠️  Update Required",
+                border_style="yellow",
+            ))
+            return False
+
+    return True
 
 app = typer.Typer(
     name="mcpfactory",
@@ -40,6 +118,10 @@ def create(
         title="Creating MCP Server",
         border_style="blue",
     ))
+
+    # Pre-flight: check required runtimes are installed
+    if not _check_prerequisites(language, console):
+        raise typer.Exit(1)
 
     # Initialize components
     db = MCPDatabase()
@@ -449,6 +531,75 @@ def config_show():
     else:
         console.print(f"[dim]Config file not found at {path}[/dim]")
         console.print("[dim]Run [bold]mcpfactory config-export[/bold] to create it.[/dim]")
+
+
+@app.command()
+def doctor():
+    """Check your environment for all MCP Factory prerequisites."""
+    console.print(Panel(
+        "[bold blue]🏭 MCP Factory — Environment Check[/bold blue]",
+        border_style="blue",
+    ))
+
+    all_ok = True
+
+    # --- Python ---
+    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    py_ok = sys.version_info >= (3, 10)
+    console.print(f"  {'[green]✓[/green]' if py_ok else '[red]✗[/red]'} Python: {py_ver}" +
+                  ("" if py_ok else " [dim](need 3.10+)[/dim]"))
+    if not py_ok:
+        all_ok = False
+
+    # --- pip ---
+    pip_ver = _get_version("pip")
+    console.print(f"  {'[green]✓[/green]' if pip_ver else '[red]✗[/red]'} pip: {pip_ver or 'not found'}")
+    if not pip_ver:
+        all_ok = False
+
+    # --- Node.js ---
+    node_ver = _get_version("node")
+    node_ok = False
+    if node_ver:
+        try:
+            major = int(node_ver.lstrip("v").split(".")[0])
+            node_ok = major >= 18
+        except (ValueError, IndexError):
+            node_ok = True  # Can't parse — assume OK
+    console.print(f"  {'[green]✓[/green]' if node_ok else '[yellow]⚠[/yellow]'} Node.js: {node_ver or 'not found'}" +
+                  (" [dim](need 18+ for TypeScript servers)[/dim]" if not node_ok else ""))
+    if not node_ok:
+        all_ok = False
+
+    # --- npm ---
+    npm_ver = _get_version("npm")
+    console.print(f"  {'[green]✓[/green]' if npm_ver else '[yellow]⚠[/yellow]'} npm: {npm_ver or 'not found'}" +
+                  (" [dim](needed for TypeScript servers)[/dim]" if not npm_ver else ""))
+    if not npm_ver:
+        all_ok = False
+
+    # --- Claude Desktop config ---
+    config_path = get_claude_config_path()
+    config_exists = config_path.exists()
+    console.print(f"  {'[green]✓[/green]' if config_exists else '[yellow]⚠[/yellow]'} Claude Desktop config: "
+                  f"{'found' if config_exists else 'not found'}")
+    if config_exists:
+        console.print(f"    [dim]{config_path}[/dim]")
+    else:
+        console.print(f"    [dim]Expected at: {config_path}[/dim]")
+
+    # --- LLM provider (ollama) ---
+    ollama_ver = _get_version("ollama")
+    console.print(f"  {'[green]✓[/green]' if ollama_ver else '[dim]–[/dim]'} Ollama: {ollama_ver or 'not found [dim](optional — needed for local LLM)[/dim]'}")
+
+    # --- Summary ---
+    console.print()
+    if all_ok:
+        console.print("[bold green]✓ All prerequisites met! You're ready to go.[/bold green]")
+    else:
+        console.print("[bold yellow]⚠ Some prerequisites are missing.[/bold yellow]")
+        console.print("[dim]  Node.js/npm are only required if you generate TypeScript servers.[/dim]")
+        console.print("[dim]  Install Node.js from: https://nodejs.org[/dim]")
 
 
 @app.command()

@@ -2796,6 +2796,31 @@ async def api_delete(url: str, extra_headers: dict[str, str] | None = None) -> s
         entry = "dist/index.js" if language == "typescript" else "server.py"
         runtime = "node" if language == "typescript" else "python"
 
+        if language == "typescript":
+            prereqs_section = """## Prerequisites
+
+Before you begin, make sure you have these installed:
+
+| Requirement | Minimum Version | Check Command | Install |
+|-------------|----------------|---------------|---------|
+| **Node.js** | 18.0+ | `node --version` | [nodejs.org](https://nodejs.org) |
+| **npm** | 9.0+ | `npm --version` | Comes with Node.js |
+
+> **Tip:** Run `mcpfactory doctor` to verify your environment if you installed via MCP Factory.
+"""
+        else:
+            prereqs_section = """## Prerequisites
+
+Before you begin, make sure you have these installed:
+
+| Requirement | Minimum Version | Check Command | Install |
+|-------------|----------------|---------------|---------|
+| **Python** | 3.10+ | `python --version` | [python.org](https://python.org) |
+| **pip** | latest | `pip --version` | Comes with Python |
+
+> **Tip:** Run `mcpfactory doctor` to verify your environment if you installed via MCP Factory.
+"""
+
         tools_table = "\n".join(
             f"| `{t.name}` | {'Read-only' if t.annotations.read_only else 'Read/Write'} | {t.description[:80]} |"
             for t in analysis.tools
@@ -2820,6 +2845,7 @@ async def api_delete(url: str, extra_headers: dict[str, str] | None = None) -> s
 |------|------|-------------|
 {tools_table}
 
+{prereqs_section}
 ## Quick Start
 
 ```bash
