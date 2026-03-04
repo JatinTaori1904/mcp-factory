@@ -54,5 +54,6 @@ jobs:
       - name: Verify wheel contents
         run: |
           pip install dist/*.whl
+          pip install fastapi uvicorn jinja2 python-multipart
           python -c "from mcp_factory.cli import app; print('CLI OK')"
           python -c "from web.app import app; print('Web OK')"
