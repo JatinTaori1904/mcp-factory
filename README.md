@@ -9,7 +9,7 @@
 
 <p align="center">
   <b>Generate production-ready MCP servers from natural language prompts.</b><br>
-  <sub>8 templates · 11 APIs · TypeScript & Python · Web Dashboard · Claude Desktop integration</sub>
+  <sub>8 templates · 11 APIs · TypeScript & Python · Docker · Web Dashboard · Claude Desktop integration</sub>
 </p>
 
 ---
@@ -81,6 +81,8 @@ github-repo-manager/
 ├── package.json           # Dependencies configured
 ├── tsconfig.json          # TypeScript config
 ├── .env.example           # Environment variables needed
+├── Dockerfile             # Container-ready deployment
+├── .dockerignore          # Docker build exclusions
 └── README.md              # Usage instructions
 ```
 
@@ -90,6 +92,14 @@ github-repo-manager/
 cd output/github-repo-manager
 npm install
 npm start
+```
+
+### 2b. Or run with Docker
+
+```bash
+cd output/github-repo-manager
+docker build -t github-repo-manager .
+docker run -i --env-file .env github-repo-manager
 ```
 
 ### 3. Connect to Claude Desktop

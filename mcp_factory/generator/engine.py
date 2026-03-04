@@ -19,6 +19,7 @@ import os
 
 from mcp_factory.generator.api_registry import detect_api, generate_env_file, generate_setup_guide, APIInfo
 from mcp_factory.generator.api_tools import has_custom_tools, get_ts_tools, get_py_tools
+from mcp_factory.generator.docker import generate_dockerfile, generate_dockerignore
 from mcp_factory.llm.client import LLMClient
 from mcp_factory.llm.prompts import (
     SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, parse_analysis_response,
@@ -565,6 +566,12 @@ main().catch((err) => {{
         (out / "README.md").write_text(self._readme(analysis, name, "typescript"), encoding="utf-8")
         files.append("README.md")
 
+        # ---- Dockerfile & .dockerignore ----
+        (out / "Dockerfile").write_text(generate_dockerfile(name, "typescript", analysis.template), encoding="utf-8")
+        files.append("Dockerfile")
+        (out / ".dockerignore").write_text(generate_dockerignore("typescript"), encoding="utf-8")
+        files.append(".dockerignore")
+
         return files
 
     # ------------------------------------------------------------------
@@ -690,6 +697,12 @@ if __name__ == "__main__":
         # ---- README.md ----
         (out / "README.md").write_text(self._readme(analysis, name, "python"), encoding="utf-8")
         files.append("README.md")
+
+        # ---- Dockerfile & .dockerignore ----
+        (out / "Dockerfile").write_text(generate_dockerfile(name, "python", analysis.template), encoding="utf-8")
+        files.append("Dockerfile")
+        (out / ".dockerignore").write_text(generate_dockerignore("python"), encoding="utf-8")
+        files.append(".dockerignore")
 
         return files
 

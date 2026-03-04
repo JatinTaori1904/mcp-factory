@@ -124,6 +124,87 @@ class TestCodeGeneration:
         assert "Unsupported language" in result.error
 
 
+class TestDockerGeneration:
+    """Test Dockerfile and .dockerignore generation."""
+
+    def setup_method(self):
+        self.generator = MCPGenerator(provider="ollama")
+
+    def _make_analysis(self, template="file-reader"):
+        return PromptAnalysis(
+            intent="Test server",
+            template=template,
+            tools=[
+                ToolDefinition("test_read", "Read", ToolAnnotations(read_only=True), "test_"),
+            ],
+            tool_names=["test_read"],
+            suggested_name="test-docker",
+            prefix="test_",
+        )
+
+    def test_typescript_generates_dockerfile(self, tmp_path):
+        result = self.generator.generate(self._make_analysis(), "test-docker", "typescript", tmp_path)
+        assert result.success
+        assert (result.output_path / "Dockerfile").exists()
+        assert (result.output_path / ".dockerignore").exists()
+        assert "Dockerfile" in result.files_created
+        assert ".dockerignore" in result.files_created
+
+    def test_python_generates_dockerfile(self, tmp_path):
+        result = self.generator.generate(self._make_analysis(), "test-docker", "python", tmp_path)
+        assert result.success
+        assert (result.output_path / "Dockerfile").exists()
+        assert (result.output_path / ".dockerignore").exists()
+
+    def test_ts_dockerfile_content(self, tmp_path):
+        result = self.generator.generate(self._make_analysis(), "test-docker", "typescript", tmp_path)
+        content = (result.output_path / "Dockerfile").read_text()
+        assert "FROM node:20-alpine" in content
+        assert "npm ci" in content
+        assert "npm run build" in content
+        assert "ENTRYPOINT" in content
+        assert "test-docker" in content
+
+    def test_py_dockerfile_content(self, tmp_path):
+        result = self.generator.generate(self._make_analysis(), "test-docker", "python", tmp_path)
+        content = (result.output_path / "Dockerfile").read_text()
+        assert "FROM python:3.12-slim" in content
+        assert "pip install" in content
+        assert "server.py" in content
+        assert "ENTRYPOINT" in content
+        assert "test-docker" in content
+
+    def test_ts_dockerfile_has_multistage_build(self, tmp_path):
+        result = self.generator.generate(self._make_analysis(), "test-docker", "typescript", tmp_path)
+        content = (result.output_path / "Dockerfile").read_text()
+        assert content.count("FROM ") == 2, "TypeScript should use multi-stage build"
+        assert "AS builder" in content
+
+    def test_dockerfile_has_build_instructions(self, tmp_path):
+        result = self.generator.generate(self._make_analysis(), "test-docker", "typescript", tmp_path)
+        content = (result.output_path / "Dockerfile").read_text()
+        assert "docker build" in content
+        assert "docker run" in content
+
+    def test_dockerignore_excludes_env(self, tmp_path):
+        result = self.generator.generate(self._make_analysis(), "test-docker", "typescript", tmp_path)
+        content = (result.output_path / ".dockerignore").read_text()
+        assert ".env" in content
+        assert "node_modules" in content
+
+    def test_py_dockerignore_excludes_pycache(self, tmp_path):
+        result = self.generator.generate(self._make_analysis(), "test-docker", "python", tmp_path)
+        content = (result.output_path / ".dockerignore").read_text()
+        assert ".env" in content
+        assert "__pycache__" in content
+
+    def test_dockerfile_has_template_label(self, tmp_path):
+        analysis = self._make_analysis(template="api-wrapper")
+        result = self.generator.generate(analysis, "test-docker", "typescript", tmp_path)
+        content = (result.output_path / "Dockerfile").read_text()
+        assert "api-wrapper" in content
+
+
 class TestDatabaseStorage:
     """Test local SQLite storage."""
 
