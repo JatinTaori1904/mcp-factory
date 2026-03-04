@@ -29,6 +29,7 @@ mcpfactory create "a server that reads CSV files and runs SQL queries on them"
 
 ## Table of Contents
 
+- [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Web Dashboard](#web-dashboard)
@@ -39,6 +40,21 @@ mcpfactory create "a server that reads CSV files and runs SQL queries on them"
 - [Development](#development)
 - [Contributing](#contributing)
 - [License](#license)
+
+---
+
+## Prerequisites
+
+| Requirement | Minimum Version | Why | Check |
+|-------------|----------------|-----|-------|
+| **Python** | 3.10+ | Runs MCP Factory itself | `python --version` |
+| **pip** | latest | Installs MCP Factory | `pip --version` |
+| **Node.js** | 18+ | Needed to build/run TypeScript servers | `node --version` |
+| **npm** | 9+ | Installs TypeScript server dependencies | `npm --version` |
+
+> **Note:** Node.js and npm are only required if you generate **TypeScript** servers (the default). Python-only servers don't need them.
+>
+> After installing, run `mcpfactory doctor` to verify everything is set up correctly.
 
 ---
 
