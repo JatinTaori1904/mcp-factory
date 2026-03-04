@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="https://img.shields.io/github/actions/workflow/status/JatinTaori1904/mcp-factory/ci.yml?branch=main&style=for-the-badge&label=CI&color=%2300B894" alt="CI">
   <img src="https://img.shields.io/pypi/v/prompt2mcp?color=%236C5CE7&label=PyPI&style=for-the-badge" alt="PyPI">
   <img src="https://img.shields.io/pypi/pyversions/prompt2mcp?color=%2300B894&style=for-the-badge" alt="Python">
   <img src="https://img.shields.io/badge/license-MIT-%2300B894?style=for-the-badge" alt="License">
