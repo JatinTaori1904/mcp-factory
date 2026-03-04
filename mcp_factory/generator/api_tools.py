@@ -95,6 +95,7 @@ server.tool(
     page: z.number().int().min(1).optional().describe("Page number for pagination (default 1)"),
     perPage: z.number().int().min(1).max(100).optional().describe("Results per page, max 100 (default 30)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ owner, type = "owner", sort = "updated", page = 1, perPage = 30 }) => {
     try {
       const url = `${BASE_URL}/users/${owner}/repos?type=${type}&sort=${sort}&page=${page}&per_page=${perPage}`;
@@ -111,8 +112,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list repos: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -122,6 +122,7 @@ server.tool(
     owner: z.string().describe("Repository owner (user or org)"),
     repo: z.string().describe("Repository name"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ owner, repo }) => {
     try {
       const res = await fetch(`${BASE_URL}/repos/${owner}/${repo}`, { headers });
@@ -139,8 +140,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to get repo: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -155,6 +155,7 @@ server.tool(
     page: z.number().int().min(1).optional().describe("Page number (default 1)"),
     perPage: z.number().int().min(1).max(100).optional().describe("Results per page (default 30)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ owner, repo, state = "open", labels, assignee, page = 1, perPage = 30 }) => {
     try {
       let url = `${BASE_URL}/repos/${owner}/${repo}/issues?state=${state}&page=${page}&per_page=${perPage}`;
@@ -174,8 +175,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list issues: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -189,6 +189,7 @@ server.tool(
     labels: z.array(z.string()).optional().describe("Labels to apply to the issue"),
     assignees: z.array(z.string()).optional().describe("GitHub usernames to assign"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async ({ owner, repo, title, body, labels, assignees }) => {
     try {
       const res = await fetch(`${BASE_URL}/repos/${owner}/${repo}/issues`, {
@@ -203,8 +204,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to create issue: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -217,6 +217,7 @@ server.tool(
     page: z.number().int().min(1).optional().describe("Page number (default 1)"),
     perPage: z.number().int().min(1).max(100).optional().describe("Results per page (default 30)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ owner, repo, state = "open", page = 1, perPage = 30 }) => {
     try {
       const url = `${BASE_URL}/repos/${owner}/${repo}/pulls?state=${state}&page=${page}&per_page=${perPage}`;
@@ -232,8 +233,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list PRs: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );'''
 
 _TS_TOOLS["slack"] = '''
@@ -244,6 +244,7 @@ server.tool(
     limit: z.number().int().min(1).max(200).optional().describe("Max channels to return (default 100)"),
     cursor: z.string().optional().describe("Pagination cursor from a previous response"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ limit = 100, cursor }) => {
     try {
       let url = `${BASE_URL}/conversations.list?types=public_channel&limit=${limit}`;
@@ -261,8 +262,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list channels: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -273,6 +273,7 @@ server.tool(
     text: z.string().describe("Message text. Supports Slack markdown (mrkdwn)."),
     threadTs: z.string().optional().describe("Thread timestamp to reply in a thread"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async ({ channel, text, threadTs }) => {
     try {
       const body: any = { channel, text };
@@ -286,8 +287,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to send message: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -298,6 +298,7 @@ server.tool(
     limit: z.number().int().min(1).max(100).optional().describe("Number of messages to return (default 20)"),
     cursor: z.string().optional().describe("Pagination cursor for older messages"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ channel, limit = 20, cursor }) => {
     try {
       let url = `${BASE_URL}/conversations.history?channel=${channel}&limit=${limit}`;
@@ -315,8 +316,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to get channel history: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -325,6 +325,7 @@ server.tool(
   {
     channel: z.string().describe("Channel ID (e.g., 'C01234ABCDE')"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ channel }) => {
     try {
       const res = await fetch(`${BASE_URL}/conversations.info?channel=${channel}`, { headers });
@@ -340,8 +341,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to get channel info: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );'''
 
 _TS_TOOLS["stripe"] = '''
@@ -353,6 +353,7 @@ server.tool(
     limit: z.number().int().min(1).max(100).optional().describe("Max customers to return (default 10)"),
     startingAfter: z.string().optional().describe("Cursor: customer ID to start after (for pagination)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ email, limit = 10, startingAfter }) => {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
@@ -369,8 +370,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list customers: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -379,6 +379,7 @@ server.tool(
   {
     customerId: z.string().describe("Stripe customer ID (starts with 'cus_')"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ customerId }) => {
     try {
       const res = await fetch(`${BASE_URL}/customers/${customerId}`, { headers });
@@ -394,8 +395,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to get customer: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -405,6 +405,7 @@ server.tool(
     limit: z.number().int().min(1).max(100).optional().describe("Max results (default 10)"),
     startingAfter: z.string().optional().describe("Payment intent ID to start after (for pagination)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ limit = 10, startingAfter }) => {
     try {
       const params = new URLSearchParams({ limit: String(limit) });
@@ -421,8 +422,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list payments: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -434,6 +434,7 @@ server.tool(
     description: z.string().optional().describe("Internal description/notes"),
     metadata: z.record(z.string()).optional().describe("Key-value metadata pairs"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async ({ email, name, description, metadata }) => {
     try {
       const body = new URLSearchParams();
@@ -452,8 +453,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to create customer: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } }
+  }
 );'''
 
 _TS_TOOLS["notion"] = '''
@@ -465,6 +465,7 @@ server.tool(
     filter: z.enum(["page", "database"]).optional().describe("Filter by object type"),
     pageSize: z.number().int().min(1).max(100).optional().describe("Max results (default 10)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ query, filter, pageSize = 10 }) => {
     try {
       const body: any = { query, page_size: pageSize };
@@ -484,8 +485,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Search failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -494,6 +494,7 @@ server.tool(
   {
     pageId: z.string().describe("Notion page ID (UUID format)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ pageId }) => {
     try {
       const res = await fetch(`${BASE_URL}/pages/${pageId}`, {
@@ -506,8 +507,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to get page: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -518,6 +518,7 @@ server.tool(
     pageSize: z.number().int().min(1).max(100).optional().describe("Max results (default 10)"),
     startCursor: z.string().optional().describe("Pagination cursor from previous response"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ databaseId, pageSize = 10, startCursor }) => {
     try {
       const body: any = { page_size: pageSize };
@@ -532,8 +533,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to query database: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -544,6 +544,7 @@ server.tool(
     title: z.string().describe("Page title"),
     content: z.string().optional().describe("Initial page content (plain text)"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async ({ databaseId, title, content }) => {
     try {
       const body: any = {
@@ -563,8 +564,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to create page: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } }
+  }
 );'''
 
 _TS_TOOLS["discord"] = '''
@@ -572,6 +572,7 @@ server.tool(
   "discord_list_guilds",
   "List all guilds (servers) the bot is a member of. Returns guild name, ID, owner status, and member count.",
   {},
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async () => {
     try {
       const res = await fetch(`${BASE_URL}/users/@me/guilds`, { headers });
@@ -585,8 +586,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list guilds: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -595,6 +595,7 @@ server.tool(
   {
     guildId: z.string().describe("Discord guild (server) ID"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ guildId }) => {
     try {
       const res = await fetch(`${BASE_URL}/guilds/${guildId}/channels`, { headers });
@@ -609,8 +610,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list channels: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -620,6 +620,7 @@ server.tool(
     channelId: z.string().describe("Discord channel ID"),
     content: z.string().describe("Message text content"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async ({ channelId, content }) => {
     try {
       const res = await fetch(`${BASE_URL}/channels/${channelId}/messages`, {
@@ -631,8 +632,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to send message: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -643,6 +643,7 @@ server.tool(
     limit: z.number().int().min(1).max(100).optional().describe("Number of messages to return (default 25)"),
     before: z.string().optional().describe("Get messages before this message ID (for pagination)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ channelId, limit = 25, before }) => {
     try {
       let url = `${BASE_URL}/channels/${channelId}/messages?limit=${limit}`;
@@ -658,8 +659,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to get messages: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );'''
 
 

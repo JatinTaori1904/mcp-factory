@@ -463,11 +463,11 @@ class MCPGenerator:
         tsconfig = {
             "compilerOptions": {
                 "target": "ES2022",
-                "module": "ES2022",
+                "module": "Node16",
                 "moduleResolution": "Node16",
                 "outDir": "./dist",
                 "rootDir": "./src",
-                "strict": True,
+                "strict": False,
                 "esModuleInterop": True,
                 "declaration": True,
                 "skipLibCheck": True,
@@ -853,6 +853,7 @@ server.tool(
   {
     path: z.string().describe("Absolute or relative path to the file to read. Example: './data/report.csv'"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ path }) => {
     const fs = await import("fs/promises");
     try {
@@ -863,8 +864,7 @@ server.tool(
       if (err.code === "EACCES") return errorResponse(`Permission denied: ${path}`, "Ensure the file is readable by the current user.");
       return errorResponse(`Failed to read file: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -876,6 +876,7 @@ server.tool(
     offset: z.number().int().min(0).optional().describe("Pagination offset (default 0)"),
     limit: z.number().int().min(1).max(200).optional().describe("Max entries to return (default 50, max 200)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ path, pattern, offset = 0, limit = 50 }) => {
     const fs = await import("fs/promises");
     const pathMod = await import("path");
@@ -904,8 +905,7 @@ server.tool(
       if (err.code === "ENOENT") return errorResponse(`Directory not found: ${path}`, "Verify the path exists.");
       return errorResponse(`Failed to list directory: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -917,6 +917,7 @@ server.tool(
     caseSensitive: z.boolean().optional().describe("Enable case-sensitive search (default false)"),
     maxResults: z.number().int().min(1).max(500).optional().describe("Max matches to return (default 50)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ path, query, caseSensitive = false, maxResults = 50 }) => {
     const fs = await import("fs/promises");
     try {
@@ -935,8 +936,7 @@ server.tool(
       if (err.code === "ENOENT") return errorResponse(`File not found: ${path}`, "Use file_list to find available files.");
       return errorResponse(`Search failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -945,6 +945,7 @@ server.tool(
   {
     path: z.string().describe("Path to the file"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ path }) => {
     const fs = await import("fs/promises");
     try {
@@ -962,8 +963,7 @@ server.tool(
       if (err.code === "ENOENT") return errorResponse(`Path not found: ${path}`);
       return errorResponse(`Failed to get file info: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -974,6 +974,7 @@ server.tool(
     content: z.string().describe("Text content to write"),
     append: z.boolean().optional().describe("If true, append to file instead of overwriting (default false)"),
   },
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   async ({ path: filePath, content, append = false }) => {
     const fs = await import("fs/promises");
     const pathMod = await import("path");
@@ -988,8 +989,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to write file: ${err.message}`, "Check that the directory is writable.");
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false } }
+  }
 );''')
 
         elif t == "database-connector":
@@ -1011,6 +1011,7 @@ server.tool(
     params: z.array(z.union([z.string(), z.number(), z.null()])).optional().describe("Ordered parameters for ? placeholders"),
     limit: z.number().int().min(1).max(1000).optional().describe("Max rows to return (default 100)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ sql, params = [], limit = 100 }) => {
     try {
       if (!sql.trim().toUpperCase().startsWith("SELECT")) {
@@ -1024,8 +1025,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Query failed: ${err.message}`, "Check SQL syntax and table/column names with db_list_tables.");
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1035,6 +1035,7 @@ server.tool(
     sql: z.string().describe("SQL statement. Example: 'INSERT INTO users (name, age) VALUES (?, ?)'"),
     params: z.array(z.union([z.string(), z.number(), z.null()])).optional().describe("Ordered parameters for ? placeholders"),
   },
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   async ({ sql, params = [] }) => {
     try {
       const db = getDb();
@@ -1044,14 +1045,14 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Execute failed: ${err.message}`, "Verify table exists with db_list_tables and check column types with db_describe_table.");
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false } }
+  }
 );
 
 server.tool(
   "db_list_tables",
   "List all tables in the database with row counts.",
   {},
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async () => {
     try {
       const db = getDb();
@@ -1065,8 +1066,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to list tables: ${err.message}`, `Ensure the database file exists at: ${DB_PATH}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1075,6 +1075,7 @@ server.tool(
   {
     table: z.string().describe("Table name to describe. Use db_list_tables to see available tables."),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ table }) => {
     try {
       const db = getDb();
@@ -1087,8 +1088,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Failed to describe table: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );''')
 
         elif t == "api-wrapper":
@@ -1119,6 +1119,7 @@ server.tool(
     url: z.string().url().describe("Full URL of the page to scrape. Example: 'https://example.com'"),
     maxLength: z.number().int().min(100).max(50000).optional().describe("Maximum text length to return (default 5000)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ url, maxLength = 5000 }) => {
     try {
       const res = await fetch(url, { headers: { "User-Agent": "MCPFactory-Scraper/1.0" } });
@@ -1130,8 +1131,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Scrape failed: ${err.message}`, "Verify the URL is reachable and correctly formatted.");
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -1141,6 +1141,7 @@ server.tool(
     url: z.string().url().describe("Full URL of the page to extract links from"),
     limit: z.number().int().min(1).max(500).optional().describe("Max links to return (default 100)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ url, limit = 100 }) => {
     try {
       const res = await fetch(url, { headers: { "User-Agent": "MCPFactory-Scraper/1.0" } });
@@ -1158,8 +1159,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Link extraction failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -1170,6 +1170,7 @@ server.tool(
     pattern: z.string().describe("Regex pattern with capture groups. Example: '<h2>(.*?)</h2>'"),
     limit: z.number().int().min(1).max(200).optional().describe("Max matches to return (default 50)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ url, pattern, limit = 50 }) => {
     try {
       const res = await fetch(url, { headers: { "User-Agent": "MCPFactory-Scraper/1.0" } });
@@ -1185,8 +1186,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Structured scrape failed: ${err.message}`, "Check the regex pattern syntax.");
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );''')
 
         elif t == "document-processor":
@@ -1197,6 +1197,7 @@ server.tool(
   {
     path: z.string().describe("Path to the document file to extract text from"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ path }) => {
     const fs = await import("fs/promises");
     try {
@@ -1206,8 +1207,7 @@ server.tool(
       if (err.code === "ENOENT") return errorResponse(`Document not found: ${path}`, "Check the path with doc_info.");
       return errorResponse(`Failed to extract text: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1216,6 +1216,7 @@ server.tool(
   {
     path: z.string().describe("Path to the document file"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ path }) => {
     const fs = await import("fs/promises");
     try {
@@ -1236,8 +1237,7 @@ server.tool(
       if (err.code === "ENOENT") return errorResponse(`Document not found: ${path}`);
       return errorResponse(`Failed to get document info: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1248,6 +1248,7 @@ server.tool(
     query: z.string().describe("Text pattern to search for"),
     contextLines: z.number().int().min(0).max(10).optional().describe("Lines of context around each match (default 2)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ path, query, contextLines = 2 }) => {
     const fs = await import("fs/promises");
     try {
@@ -1271,8 +1272,7 @@ server.tool(
       if (err.code === "ENOENT") return errorResponse(`Document not found: ${path}`, "Use doc_info to check available documents.");
       return errorResponse(`Search failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );''')
 
         elif t == "auth-server":
@@ -1302,6 +1302,7 @@ server.tool(
     password: z.string().min(8).describe("Password (minimum 8 characters)"),
     role: z.string().optional().describe("User role, e.g. 'admin' or 'user' (default: 'user')"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   async ({ username, password, role }) => {
     if (users.find(u => u.username === username)) {
       return errorResponse(`Username '${username}' already exists.`, "Choose a different username.");
@@ -1311,8 +1312,7 @@ server.tool(
     users.push(user);
     persist();
     return { content: [{ type: "text", text: JSON.stringify({ id: user.id, username, role: user.role }) }] };
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1322,6 +1322,7 @@ server.tool(
     username: z.string().describe("The username to authenticate"),
     password: z.string().describe("The password to verify"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ username, password }) => {
     const user = users.find(u => u.username === username);
     if (!user) return errorResponse("Invalid username or password.", "Check credentials or register first with auth_register.");
@@ -1329,8 +1330,7 @@ server.tool(
     if (!valid) return errorResponse("Invalid username or password.", "Check credentials or reset password.");
     const token = jwt.sign({ sub: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: `${JWT_EXPIRY}h` });
     return { content: [{ type: "text", text: JSON.stringify({ token, expiresInHours: JWT_EXPIRY }) }] };
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1339,6 +1339,7 @@ server.tool(
   {
     token: z.string().describe("The JWT token to verify"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ token }) => {
     try {
       const payload = jwt.verify(token, JWT_SECRET);
@@ -1346,8 +1347,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Token verification failed: ${err.message}`, "The token may be expired. Use auth_refresh to get a new one.");
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1356,6 +1356,7 @@ server.tool(
   {
     token: z.string().describe("The JWT token to refresh (can be expired)"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   async ({ token }) => {
     try {
       const payload: any = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
@@ -1364,8 +1365,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Token refresh failed: ${err.message}`, "Provide a valid JWT token (even if expired).");
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1375,12 +1375,12 @@ server.tool(
     offset: z.number().int().min(0).optional().describe("Pagination offset (default 0)"),
     limit: z.number().int().min(1).max(100).optional().describe("Max users to return (default 20, max 100)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ offset = 0, limit = 20 }) => {
     const total = users.length;
     const page = users.slice(offset, offset + limit).map(({ id, username, role, createdAt }) => ({ id, username, role, createdAt }));
     return { content: [{ type: "text", text: JSON.stringify({ total, offset, limit, users: page }, null, 2) }] };
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );''')
 
         elif t == "data-pipeline":
@@ -1405,6 +1405,7 @@ server.tool(
   {
     path: z.string().describe("Path to the data file (CSV or JSON)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ path }) => {
     try {
       const content = await fs.readFile(path, "utf-8");
@@ -1439,8 +1440,7 @@ server.tool(
       if (err.code === "ENOENT") return errorResponse(`File not found: ${path}`, "Check the path or use a full absolute path.");
       return errorResponse(`Ingest failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1452,6 +1452,7 @@ server.tool(
     value: z.string().optional().describe("For filter: value to match. For rename: new column name. For compute: JS expression using 'row' object."),
     operator: z.enum(["eq", "neq", "gt", "lt", "gte", "lte", "contains"]).optional().describe("Comparison operator for filter (default: eq)"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ operation, column, value, operator = "eq" }) => {
     if (pipeline.data.length === 0) return errorResponse("Pipeline is empty.", "Use pipe_ingest to load data first.");
     const before = pipeline.data.length;
@@ -1487,8 +1488,7 @@ server.tool(
     }
 
     return { content: [{ type: "text", text: JSON.stringify({ rows: pipeline.data.length, columns: pipeline.columns, lastOp: pipeline.lastOp }) }] };
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1499,6 +1499,7 @@ server.tool(
     operation: z.enum(["sum", "avg", "count", "min", "max"]).describe("Aggregation operation"),
     groupBy: z.string().optional().describe("Optional column to group results by"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ column, operation, groupBy }) => {
     if (pipeline.data.length === 0) return errorResponse("Pipeline is empty.", "Use pipe_ingest to load data first.");
 
@@ -1527,8 +1528,7 @@ server.tool(
 
     pipeline.lastOp = `aggregate(${operation}(${column})${groupBy ? ` by ${groupBy}` : ""})`;
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1537,6 +1537,7 @@ server.tool(
   {
     path: z.string().describe("Output file path. Extension determines format (.csv or .json)"),
   },
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   async ({ path }) => {
     if (pipeline.data.length === 0) return errorResponse("Pipeline is empty — nothing to export.", "Use pipe_ingest to load data first.");
     try {
@@ -1554,14 +1555,14 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Export failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false } }
+  }
 );
 
 server.tool(
   "pipe_status",
   "Show current pipeline state: row count, column names, and last operation performed.",
   {},
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async () => {
     const preview = pipeline.data.slice(0, 3);
     return { content: [{ type: "text", text: JSON.stringify({
@@ -1570,8 +1571,7 @@ server.tool(
       lastOperation: pipeline.lastOp,
       preview,
     }, null, 2) }] };
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );''')
 
         elif t == "notification-hub":
@@ -1609,6 +1609,7 @@ server.tool(
     subject: z.string().describe("Notification subject / title"),
     body: z.string().describe("Notification body / message content"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async ({ channel, to, subject, body }) => {
     const record: NotifyRecord = { id: ++notifyId, channel, to, subject, status: "pending", timestamp: new Date().toISOString() };
     try {
@@ -1632,18 +1633,17 @@ server.tool(
     }
     history.push(record);
     return { content: [{ type: "text", text: JSON.stringify({ id: record.id, channel, status: record.status }) }] };
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } }
+  }
 );
 
 server.tool(
   "notify_list_channels",
   "List all configured notification channels and whether they are ready to use.",
   {},
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async () => {
     return { content: [{ type: "text", text: JSON.stringify(channels, null, 2) }] };
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1654,13 +1654,13 @@ server.tool(
     offset: z.number().int().min(0).optional().describe("Pagination offset (default 0)"),
     limit: z.number().int().min(1).max(100).optional().describe("Max records to return (default 20)"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   async ({ channel, offset = 0, limit = 20 }) => {
     let filtered = channel ? history.filter(r => r.channel === channel) : history;
     const total = filtered.length;
     const page = filtered.slice(offset, offset + limit);
     return { content: [{ type: "text", text: JSON.stringify({ total, offset, limit, records: page }, null, 2) }] };
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }
+  }
 );
 
 server.tool(
@@ -1671,6 +1671,7 @@ server.tool(
     payload: z.string().describe("JSON payload string to send"),
     secret: z.string().optional().describe("Optional HMAC secret for signature header"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async ({ url, payload, secret }) => {
     try {
       const hdrs: Record<string, string> = { "Content-Type": "application/json" };
@@ -1687,8 +1688,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`Webhook request failed: ${err.message}`, "Check the URL and network connectivity.");
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } }
+  }
 );''')
 
         return "\n".join(blocks)
@@ -2570,6 +2570,7 @@ server.tool(
     extraHeaders: z.record(z.string()).optional().describe("Additional request headers"),
     queryParams: z.record(z.string()).optional().describe("URL query parameters as key-value pairs"),
   },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ url, extraHeaders, queryParams }) => {
     try {
       const fullUrl = new URL(url.startsWith("http") ? url : `${BASE_URL}${url}`);
@@ -2581,8 +2582,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`GET request failed: ${err.message}`, "Check the URL format and network connectivity.");
     }
-  },
-  { annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -2593,6 +2593,7 @@ server.tool(
     body: z.string().describe("JSON request body. Example: '{\\\\"name\\\\": \\\\"test\\\\"}'"),
     extraHeaders: z.record(z.string()).optional().describe("Additional request headers"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   async ({ url, body, extraHeaders }) => {
     try {
       const fullUrl = url.startsWith("http") ? url : `${BASE_URL}${url}`;
@@ -2603,8 +2604,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`POST request failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -2615,6 +2615,7 @@ server.tool(
     body: z.string().describe("JSON request body"),
     extraHeaders: z.record(z.string()).optional().describe("Additional request headers"),
   },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async ({ url, body, extraHeaders }) => {
     try {
       const fullUrl = url.startsWith("http") ? url : `${BASE_URL}${url}`;
@@ -2625,8 +2626,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`PUT request failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true } }
+  }
 );
 
 server.tool(
@@ -2636,6 +2636,7 @@ server.tool(
     url: z.string().describe("Full URL or path to the resource to delete"),
     extraHeaders: z.record(z.string()).optional().describe("Additional request headers"),
   },
+  { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
   async ({ url, extraHeaders }) => {
     try {
       const fullUrl = url.startsWith("http") ? url : `${BASE_URL}${url}`;
@@ -2646,8 +2647,7 @@ server.tool(
     } catch (err: any) {
       return errorResponse(`DELETE request failed: ${err.message}`);
     }
-  },
-  { annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true } }
+  }
 );'''
 
     def _generic_py_api_tools(self) -> str:
