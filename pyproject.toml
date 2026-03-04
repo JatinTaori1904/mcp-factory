@@ -57,10 +57,10 @@ web = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jatin/mcp-factory"
-Repository = "https://github.com/jatin/mcp-factory"
-Issues = "https://github.com/jatin/mcp-factory/issues"
-Documentation = "https://github.com/jatin/mcp-factory#readme"
+Homepage = "https://github.com/JatinTaori1904/mcp-factory"
+Repository = "https://github.com/JatinTaori1904/mcp-factory"
+Issues = "https://github.com/JatinTaori1904/mcp-factory/issues"
+Documentation = "https://github.com/JatinTaori1904/mcp-factory#readme"
 
 [project.scripts]
 mcpfactory = "mcp_factory.cli.main:app"

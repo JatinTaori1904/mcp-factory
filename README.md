@@ -19,7 +19,7 @@ pip install prompt2mcp
 Or install from source:
 
 ```bash
-git clone https://github.com/jatin/mcp-factory.git
+git clone https://github.com/JatinTaori1904/mcp-factory.git
 cd mcp-factory
 pip install -e ".[dev]"
 ```
