@@ -11,10 +11,29 @@ from typing import Optional
 
 
 def get_claude_config_path() -> Path:
-    """Return the default claude_desktop_config.json path for the current OS."""
+    """Return the default claude_desktop_config.json path for the current OS.
+    
+    On Windows, checks both the Microsoft Store location and the standard
+    %APPDATA% location, preferring whichever already exists.
+    """
     system = platform.system()
     if system == "Windows":
-        return Path.home() / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
+        # Microsoft Store version uses a sandboxed path
+        import glob
+        store_pattern = str(Path.home() / "AppData" / "Local" / "Packages" / "Claude_*" / "LocalCache" / "Roaming" / "Claude")
+        store_matches = glob.glob(store_pattern)
+        if store_matches:
+            store_path = Path(store_matches[0]) / "claude_desktop_config.json"
+            if store_path.exists():
+                return store_path
+        # Standard (non-Store) install
+        standard_path = Path.home() / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
+        if standard_path.exists():
+            return standard_path
+        # Neither exists — prefer Store path if the package folder exists, else standard
+        if store_matches:
+            return Path(store_matches[0]) / "claude_desktop_config.json"
+        return standard_path
     elif system == "Darwin":
         return Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
     else:
