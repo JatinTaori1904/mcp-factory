@@ -166,8 +166,8 @@ async def api_create_server(
 
     # Auto-add to Claude config
     env_vars = None
-    if analysis.api_info:
-        env_vars = {analysis.api_info.env_var_name: "your-key-here"}
+    if analysis.api_infos:
+        env_vars = {a.env_var_name: "your-key-here" for a in analysis.api_infos}
     try:
         add_server_to_config(
             name=server_name,
@@ -189,6 +189,7 @@ async def api_create_server(
         "validation": validation,
         "review": result.review,
         "api_info": analysis.api_info,
+        "api_infos": analysis.api_infos,
     })
 
 

@@ -17,7 +17,7 @@ from typing import Optional
 import json
 import os
 
-from mcp_factory.generator.api_registry import detect_api, generate_env_file, generate_setup_guide, APIInfo
+from mcp_factory.generator.api_registry import detect_api, detect_apis, generate_env_file, generate_setup_guide, APIInfo
 from mcp_factory.generator.api_tools import has_custom_tools, get_ts_tools, get_py_tools
 from mcp_factory.generator.docker import generate_dockerfile, generate_dockerignore
 from mcp_factory.llm.client import LLMClient
@@ -60,7 +60,12 @@ class PromptAnalysis:
     suggested_name: str = ""
     prefix: str = ""
     parameters: dict = field(default_factory=dict)
-    api_info: Optional[APIInfo] = None  # detected API details (for api-wrapper template)
+    api_infos: list[APIInfo] = field(default_factory=list)  # all detected APIs
+
+    @property
+    def api_info(self) -> Optional[APIInfo]:
+        """Backward-compat: return the first detected API or None."""
+        return self.api_infos[0] if self.api_infos else None
 
 
 @dataclass
@@ -242,23 +247,23 @@ class MCPGenerator:
         Strategy:
           1. Try the LLM for intelligent analysis (custom tools, accurate intent).
           2. If LLM is unavailable or returns bad JSON, fall back to keyword matching.
-        Both paths run ``detect_api()`` to enrich with API registry data.
+        Both paths run ``detect_apis()`` to enrich with API registry data.
         """
         self._llm_used = False
 
-        # Always detect API from registry (fast, deterministic)
-        api_info = detect_api(prompt)
+        # Always detect APIs from registry (fast, deterministic)
+        api_infos = detect_apis(prompt)
 
         # ---- Attempt LLM analysis ----
-        llm_result = self._analyze_with_llm(prompt, api_info)
+        llm_result = self._analyze_with_llm(prompt, api_infos)
         if llm_result is not None:
             self._llm_used = True
             return llm_result
 
         # ---- Fallback: keyword scoring ----
-        return self._analyze_with_keywords(prompt, api_info)
+        return self._analyze_with_keywords(prompt, api_infos)
 
-    def _analyze_with_llm(self, prompt: str, api_info: Optional[APIInfo]) -> Optional[PromptAnalysis]:
+    def _analyze_with_llm(self, prompt: str, api_infos: list[APIInfo]) -> Optional[PromptAnalysis]:
         """Try to analyze the prompt using the configured LLM.
 
         Returns ``None`` if the LLM is unavailable or the response is
@@ -298,9 +303,14 @@ class MCPGenerator:
                 prefix=clean["prefix"],
             ))
 
-        # If LLM detected an API name, use our registry for rich info
-        if clean["api_name"] and api_info is None:
-            api_info = detect_api(clean["api_name"])
+        # If LLM detected API names not already in our registry results, resolve them
+        llm_api_names = clean.get("api_names", [])
+        known_names = {a.name for a in api_infos}
+        for name in llm_api_names:
+            if name not in known_names:
+                extra = detect_api(name)
+                if extra:
+                    api_infos.append(extra)
 
         return PromptAnalysis(
             intent=clean["intent"],
@@ -310,10 +320,10 @@ class MCPGenerator:
             suggested_name=clean["suggested_name"],
             prefix=clean["prefix"],
             parameters={"original_prompt": prompt, "source": "llm", "model": self.model},
-            api_info=api_info,
+            api_infos=api_infos,
         )
 
-    def _analyze_with_keywords(self, prompt: str, api_info: Optional[APIInfo]) -> PromptAnalysis:
+    def _analyze_with_keywords(self, prompt: str, api_infos: list[APIInfo]) -> PromptAnalysis:
         """Fallback: analyze the prompt using keyword scoring."""
         prompt_lower = prompt.lower()
 
@@ -322,8 +332,8 @@ class MCPGenerator:
         for template, keywords in TEMPLATE_KEYWORDS.items():
             scores[template] = sum(1 for kw in keywords if kw in prompt_lower)
 
-        # If a known API was detected, boost api-wrapper score
-        if api_info is not None:
+        # If known APIs were detected, boost api-wrapper score
+        if api_infos:
             scores["api-wrapper"] = scores.get("api-wrapper", 0) + 10
 
         best_template = max(scores, key=scores.get)
@@ -332,30 +342,40 @@ class MCPGenerator:
 
         # Stage 2: Use API-specific tool defs if available
         tools = TEMPLATE_TOOLS.get(best_template, [])
-        if best_template == "api-wrapper" and api_info and has_custom_tools(api_info.name):
-            from mcp_factory.generator.api_tools import get_custom_tool_defs
-            custom_defs = get_custom_tool_defs(api_info.name)
-            if custom_defs:
-                tools = [
-                    ToolDefinition(
-                        name=td["name"],
-                        description=td["description"],
-                        annotations=ToolAnnotations(
-                            read_only=td.get("read_only", True),
-                            destructive=td.get("destructive", False),
-                            idempotent=td.get("idempotent", True),
-                            open_world=td.get("open_world", True),
-                        ),
-                        prefix=td["name"].split("_")[0] + "_" if "_" in td["name"] else "",
-                    )
-                    for td in custom_defs
-                ]
+        if best_template == "api-wrapper" and api_infos:
+            # Collect custom tool defs from all detected APIs
+            all_custom: list[ToolDefinition] = []
+            for api in api_infos:
+                if has_custom_tools(api.name):
+                    from mcp_factory.generator.api_tools import get_custom_tool_defs
+                    custom_defs = get_custom_tool_defs(api.name)
+                    if custom_defs:
+                        all_custom.extend([
+                            ToolDefinition(
+                                name=td["name"],
+                                description=td["description"],
+                                annotations=ToolAnnotations(
+                                    read_only=td.get("read_only", True),
+                                    destructive=td.get("destructive", False),
+                                    idempotent=td.get("idempotent", True),
+                                    open_world=td.get("open_world", True),
+                                ),
+                                prefix=td["name"].split("_")[0] + "_" if "_" in td["name"] else "",
+                            )
+                            for td in custom_defs
+                        ])
+            if all_custom:
+                tools = all_custom
 
         prefix = tools[0].prefix if tools else ""
 
-        # Generate a clean suggested name — prefer API name if detected
-        if api_info:
-            suggested_name = f"{api_info.name}-mcp-server"
+        # Generate a clean suggested name — prefer API names if detected
+        if api_infos:
+            if len(api_infos) == 1:
+                suggested_name = f"{api_infos[0].name}-mcp-server"
+            else:
+                names = "-".join(a.name for a in api_infos[:3])
+                suggested_name = f"{names}-mcp-server"[:30]
         else:
             stop_words = {"a", "an", "the", "my", "and", "or", "to", "for", "from", "with", "in", "on"}
             words = [w for w in prompt_lower.split() if w.isalnum() and w not in stop_words][:4]
@@ -369,7 +389,7 @@ class MCPGenerator:
             suggested_name=suggested_name,
             prefix=prefix,
             parameters={"original_prompt": prompt, "source": "keywords"},
-            api_info=api_info,
+            api_infos=api_infos,
         )
 
     # ------------------------------------------------------------------
@@ -478,7 +498,7 @@ class MCPGenerator:
         files.append("tsconfig.json")
 
         # ---- .env.example (API-specific if detected) ----
-        env_content = generate_env_file(analysis.api_info)
+        env_content = generate_env_file(apis=analysis.api_infos)
         if analysis.template == "database-connector":
             env_content = "# Database Configuration\n# Never commit .env to git!\n\nDB_PATH=database.db\n"
         elif analysis.template == "auth-server":
@@ -495,7 +515,7 @@ class MCPGenerator:
         files.append(".gitignore")
 
         # ---- SETUP.md (step-by-step API key instructions) ----
-        setup_content = generate_setup_guide(analysis.api_info, name, "typescript")
+        setup_content = generate_setup_guide(server_name=name, language="typescript", apis=analysis.api_infos)
         (out / "SETUP.md").write_text(setup_content, encoding="utf-8")
         files.append("SETUP.md")
 
@@ -616,7 +636,7 @@ dev = [
         files.append("pyproject.toml")
 
         # ---- .env.example (API-specific if detected) ----
-        env_content = generate_env_file(analysis.api_info)
+        env_content = generate_env_file(apis=analysis.api_infos)
         if analysis.template == "database-connector":
             env_content = "# Database Configuration\n# Never commit .env to git!\n\nDB_PATH=database.db\n"
         elif analysis.template == "auth-server":
@@ -633,7 +653,7 @@ dev = [
         files.append(".gitignore")
 
         # ---- SETUP.md (step-by-step API key instructions) ----
-        setup_content = generate_setup_guide(analysis.api_info, name, "python")
+        setup_content = generate_setup_guide(server_name=name, language="python", apis=analysis.api_infos)
         (out / "SETUP.md").write_text(setup_content, encoding="utf-8")
         files.append("SETUP.md")
 
@@ -711,10 +731,15 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------
 
     def _ts_auth_setup(self, analysis: PromptAnalysis) -> str:
-        """Generate TypeScript auth setup code based on detected API."""
-        api = analysis.api_info
+        """Generate TypeScript auth setup code based on detected APIs.
 
-        if api is None:
+        For multi-API servers, generates per-API prefixed constants
+        (e.g. GITHUB_BASE_URL, GITHUB_HEADERS) plus a backward-compat
+        alias of BASE_URL/headers when only one API is detected.
+        """
+        apis = analysis.api_infos
+
+        if not apis:
             if analysis.template == "api-wrapper":
                 return '''
 const API_KEY = process.env.API_KEY || "";
@@ -732,8 +757,12 @@ const headers: Record<string, string> = {
 '''
             return "// No API credentials required for this template.\n"
 
-        if api.auth_type == "basic" and api.name == "jira":
-            return f'''
+        blocks: list[str] = []
+        for api in apis:
+            prefix = api.name.upper()
+
+            if api.auth_type == "basic" and api.name == "jira":
+                blocks.append(f'''
 const {api.env_var_name} = process.env.{api.env_var_name} || "";
 const JIRA_EMAIL = process.env.JIRA_EMAIL || "";
 const JIRA_BASE_URL = process.env.JIRA_BASE_URL || "";
@@ -748,15 +777,14 @@ if (!{api.env_var_name} || !JIRA_EMAIL || !JIRA_BASE_URL) {{
 }}
 
 const AUTH_HEADER = `Basic ${{Buffer.from(`${{JIRA_EMAIL}}:${{{api.env_var_name}}}`).toString("base64")}}`;
-const BASE_URL = JIRA_BASE_URL;
-const headers: Record<string, string> = {{
+const {prefix}_BASE_URL = JIRA_BASE_URL;
+const {prefix}_HEADERS: Record<string, string> = {{
   "Authorization": AUTH_HEADER,
   "Content-Type": "application/json",
 }};
-'''
-
-        # Bearer auth (most common)
-        return f'''
+''')
+            else:
+                blocks.append(f'''
 const {api.env_var_name} = process.env.{api.env_var_name} || "";
 
 if (!{api.env_var_name}) {{
@@ -767,18 +795,34 @@ if (!{api.env_var_name}) {{
   process.exit(1);
 }}
 
-const BASE_URL = "{api.base_url}";
-const headers: Record<string, string> = {{
+const {prefix}_BASE_URL = "{api.base_url}";
+const {prefix}_HEADERS: Record<string, string> = {{
   "Authorization": `Bearer ${{{api.env_var_name}}}`,
   "Content-Type": "application/json",
 }};
-'''
+''')
+
+        # Backward-compat aliases when there is only one API
+        if len(apis) == 1:
+            prefix = apis[0].name.upper()
+            blocks.append(f'''
+// Backward-compatible aliases
+const BASE_URL = {prefix}_BASE_URL;
+const headers = {prefix}_HEADERS;
+''')
+
+        return "\n".join(blocks)
 
     def _py_auth_setup(self, analysis: PromptAnalysis) -> str:
-        """Generate Python auth setup code based on detected API."""
-        api = analysis.api_info
+        """Generate Python auth setup code based on detected APIs.
 
-        if api is None:
+        For multi-API servers, generates per-API prefixed constants
+        (e.g. GITHUB_BASE_URL, GITHUB_HEADERS) plus a backward-compat
+        alias of BASE_URL/HEADERS when only one API is detected.
+        """
+        apis = analysis.api_infos
+
+        if not apis:
             if analysis.template == "api-wrapper":
                 return '''
 API_KEY = os.getenv("API_KEY", "")
@@ -795,8 +839,12 @@ HEADERS: dict[str, str] = {
 '''
             return "# No API credentials required for this template.\n"
 
-        if api.auth_type == "basic" and api.name == "jira":
-            return f'''
+        blocks: list[str] = []
+        for api in apis:
+            prefix = api.name.upper()
+
+            if api.auth_type == "basic" and api.name == "jira":
+                blocks.append(f'''
 import base64
 
 {api.env_var_name} = os.getenv("{api.env_var_name}", "")
@@ -811,15 +859,14 @@ if not {api.env_var_name} or not JIRA_EMAIL or not JIRA_BASE_URL:
     sys.exit(1)
 
 _auth = base64.b64encode(f"{{JIRA_EMAIL}}:{{{api.env_var_name}}}".encode()).decode()
-BASE_URL = JIRA_BASE_URL
-HEADERS: dict[str, str] = {{
+{prefix}_BASE_URL = JIRA_BASE_URL
+{prefix}_HEADERS: dict[str, str] = {{
     "Authorization": f"Basic {{_auth}}",
     "Content-Type": "application/json",
 }}
-'''
-
-        # Bearer auth (most common)
-        return f'''
+''')
+            else:
+                blocks.append(f'''
 {api.env_var_name} = os.getenv("{api.env_var_name}", "")
 
 if not {api.env_var_name}:
@@ -829,12 +876,23 @@ if not {api.env_var_name}:
     print("   See SETUP.md for step-by-step instructions.", file=sys.stderr)
     sys.exit(1)
 
-BASE_URL = "{api.base_url}"
-HEADERS: dict[str, str] = {{
+{prefix}_BASE_URL = "{api.base_url}"
+{prefix}_HEADERS: dict[str, str] = {{
     "Authorization": f"Bearer {{{api.env_var_name}}}",
     "Content-Type": "application/json",
 }}
-'''
+''')
+
+        # Backward-compat aliases when there is only one API
+        if len(apis) == 1:
+            prefix = apis[0].name.upper()
+            blocks.append(f'''
+# Backward-compatible aliases
+BASE_URL = {prefix}_BASE_URL
+HEADERS = {prefix}_HEADERS
+''')
+
+        return "\n".join(blocks)
 
     # ------------------------------------------------------------------
     # TypeScript tool code generation (with annotations)
@@ -1093,21 +1151,26 @@ server.tool(
 
         elif t == "api-wrapper":
             # Stage 2: Use API-specific tools if available, else LLM, else generic
-            api_name = analysis.api_info.name if analysis.api_info else None
-            custom_ts = get_ts_tools(api_name) if api_name else None
-
-            if custom_ts:
-                # Pre-built API-specific tools (GitHub, Slack, Stripe, etc.)
-                blocks.append(custom_ts)
-            elif api_name and self._llm_available():
-                # LLM-generated custom tools for known APIs without templates
-                llm_code = self._generate_tools_with_llm(analysis, "typescript")
-                if llm_code:
-                    blocks.append(llm_code)
-                else:
+            # Multi-API: loop over all detected APIs
+            apis = analysis.api_infos
+            if apis:
+                has_any_custom = False
+                for api in apis:
+                    custom_ts = get_ts_tools(api.name)
+                    if custom_ts:
+                        blocks.append(f"\n// ─── {api.display_name} Tools ───")
+                        blocks.append(custom_ts)
+                        has_any_custom = True
+                    elif self._llm_available():
+                        llm_code = self._generate_tools_with_llm(analysis, "typescript")
+                        if llm_code:
+                            blocks.append(f"\n// ─── {api.display_name} Tools ───")
+                            blocks.append(llm_code)
+                            has_any_custom = True
+                if not has_any_custom:
                     blocks.append(self._generic_ts_api_tools())
             else:
-                # Fallback: generic HTTP CRUD tools
+                # No APIs detected — fallback to generic
                 blocks.append(self._generic_ts_api_tools())
 
         elif t == "web-scraper":
@@ -1950,21 +2013,26 @@ async def db_describe_table(table: str) -> str:
 
         elif t == "api-wrapper":
             # Stage 2: Use API-specific tools if available, else LLM, else generic
-            api_name = analysis.api_info.name if analysis.api_info else None
-            custom_py = get_py_tools(api_name) if api_name else None
-
-            if custom_py:
-                # Pre-built API-specific tools (GitHub, Slack, Stripe, etc.)
-                blocks.append(custom_py)
-            elif api_name and self._llm_available():
-                # LLM-generated custom tools for known APIs without templates
-                llm_code = self._generate_tools_with_llm(analysis, "python")
-                if llm_code:
-                    blocks.append(llm_code)
-                else:
+            # Multi-API: loop over all detected APIs
+            apis = analysis.api_infos
+            if apis:
+                has_any_custom = False
+                for api in apis:
+                    custom_py = get_py_tools(api.name)
+                    if custom_py:
+                        blocks.append(f"\n# ─── {api.display_name} Tools ───")
+                        blocks.append(custom_py)
+                        has_any_custom = True
+                    elif self._llm_available():
+                        llm_code = self._generate_tools_with_llm(analysis, "python")
+                        if llm_code:
+                            blocks.append(f"\n# ─── {api.display_name} Tools ───")
+                            blocks.append(llm_code)
+                            has_any_custom = True
+                if not has_any_custom:
                     blocks.append(self._generic_py_api_tools())
             else:
-                # Fallback: generic HTTP CRUD tools
+                # No APIs detected — fallback to generic
                 blocks.append(self._generic_py_api_tools())
 
         elif t == "web-scraper":
@@ -2747,6 +2815,13 @@ async def api_delete(url: str, extra_headers: dict[str, str] | None = None) -> s
         if not self.llm:
             return None
 
+        # Build multi-API info for the prompt
+        api_names = [a.name for a in analysis.api_infos] if analysis.api_infos else []
+        api_vars: dict[str, dict[str, str]] = {}
+        for a in analysis.api_infos:
+            api_vars[a.name] = {"base_url": a.base_url, "env_var": a.env_var_name}
+
+        # Backward compat fallbacks
         api_name = analysis.api_info.name if analysis.api_info else None
         base_url = analysis.api_info.base_url if analysis.api_info else "https://api.example.com"
 
@@ -2762,6 +2837,8 @@ async def api_delete(url: str, extra_headers: dict[str, str] | None = None) -> s
             api_name=api_name,
             base_url=base_url,
             tools=tool_dicts,
+            api_names=api_names,
+            api_vars=api_vars,
         )
 
         try:
@@ -2874,7 +2951,7 @@ Copy `.env.example` to `.env` and configure:
 cp .env.example .env
 ```
 
-{"## 🔑 API Key Setup" + chr(10) + chr(10) + f"This server requires a **{analysis.api_info.display_name}** API key." + chr(10) + chr(10) + f"| Variable | Where to get it | Free tier? |" + chr(10) + f"|----------|----------------|------------|" + chr(10) + f"| `{analysis.api_info.env_var_name}` | [{analysis.api_info.key_url}]({analysis.api_info.key_url}) | {'✅ Yes' if analysis.api_info.free_tier else '❌ No'} |" + chr(10) + chr(10) + "👉 See `SETUP.md` for detailed step-by-step instructions." + chr(10) if analysis.api_info else ""}
+{"## 🔑 API Key Setup" + chr(10) + chr(10) + (f"This server connects to **{', '.join(a.display_name for a in analysis.api_infos)}**." if analysis.api_infos else "") + chr(10) + chr(10) + f"| Variable | Where to get it | Free tier? |" + chr(10) + f"|----------|----------------|------------|" + chr(10) + chr(10).join(f"| `{a.env_var_name}` | [{a.key_url}]({a.key_url}) | {'✅ Yes' if a.free_tier else '❌ No'} |" for a in analysis.api_infos) + chr(10) + chr(10) + "👉 See `SETUP.md` for detailed step-by-step instructions." + chr(10) if analysis.api_infos else ""}
 ## Add to Claude Desktop
 
 Edit `claude_desktop_config.json`:

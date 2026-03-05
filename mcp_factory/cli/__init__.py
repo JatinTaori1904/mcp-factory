@@ -187,20 +187,19 @@ def create(
         mode = "[dim]read-only[/dim]" if t.annotations.read_only else "[yellow]read/write[/yellow]"
         console.print(f"  • [cyan]{t.name}[/cyan] — {t.description[:60]}  {mode}")
 
-    if analysis.api_info:
-        api = analysis.api_info
-        console.print(f"[green]✓[/green] Detected API: [bold cyan]{api.display_name}[/bold cyan]")
-        console.print(f"  [dim]Auth:[/dim] {api.auth_type}  |  [dim]Env var:[/dim] {api.env_var_name}")
-        console.print(f"  [dim]Get your key:[/dim] [link={api.key_url}]{api.key_url}[/link]")
-        if api.free_tier:
-            console.print(f"  [green]✓ Free tier available[/green]")
-
-        # Stage 2: Show tool generation mode
+    if analysis.api_infos:
         from mcp_factory.generator.api_tools import has_custom_tools
-        if has_custom_tools(api.name):
-            console.print(f"  [green]✓ API-specific tools[/green] — Real {api.display_name} endpoints (not generic HTTP)")
-        else:
-            console.print(f"  [dim]ℹ Using generic HTTP tools — no pre-built {api.display_name} template yet[/dim]")
+        api_label = ", ".join(f"[bold cyan]{a.display_name}[/bold cyan]" for a in analysis.api_infos)
+        console.print(f"[green]✓[/green] Detected API(s): {api_label}")
+        for api in analysis.api_infos:
+            console.print(f"  [dim]Auth:[/dim] {api.auth_type}  |  [dim]Env var:[/dim] {api.env_var_name}")
+            console.print(f"  [dim]Get your key:[/dim] [link={api.key_url}]{api.key_url}[/link]")
+            if api.free_tier:
+                console.print(f"  [green]✓ Free tier available[/green]")
+            if has_custom_tools(api.name):
+                console.print(f"  [green]✓ API-specific tools[/green] — Real {api.display_name} endpoints (not generic HTTP)")
+            else:
+                console.print(f"  [dim]ℹ Using generic HTTP tools — no pre-built {api.display_name} template yet[/dim]")
 
     with console.status("[bold green]Generating MCP server code..."):
         # Step 2: Generate the MCP server
@@ -269,8 +268,8 @@ def create(
 
         # Step 5: Auto-export to Claude Desktop config
         env_vars = None
-        if analysis.api_info:
-            env_vars = {analysis.api_info.env_var_name: "your-key-here"}
+        if analysis.api_infos:
+            env_vars = {a.env_var_name: "your-key-here" for a in analysis.api_infos}
         try:
             config_path, was_added = add_server_to_config(
                 name=server_name,
@@ -285,11 +284,11 @@ def create(
 
         # Print next steps
         api_step = ""
-        if analysis.api_info:
+        if analysis.api_infos:
+            api_names = ", ".join(a.display_name for a in analysis.api_infos)
             api_step = (
-                f"\n  [yellow]# Set up your {analysis.api_info.display_name} API key:[/yellow]\n"
+                f"\n  [yellow]# Set up your API key(s) ({api_names}):[/yellow]\n"
                 f"  cp .env.example .env\n"
-                f"  # Get key at: {analysis.api_info.key_url}\n"
                 f"  # See SETUP.md for detailed instructions\n"
             )
 

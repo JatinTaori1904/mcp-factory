@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt2mcp"
-version = "0.4.0"
+version = "0.5.0"
 description = "Build MCP servers from natural language prompts — local-first, privacy-focused"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-    { name = "Jatin" },
+    { name = "Jatin", email = "jatintaori74@gmail.com" },
 ]
 keywords = [
     "mcp",

@@ -317,39 +317,63 @@ def detect_api(prompt: str) -> Optional[APIInfo]:
 
     Returns the matching APIInfo or None for non-API templates.
     """
+    apis = detect_apis(prompt)
+    return apis[0] if apis else None
+
+
+def detect_apis(prompt: str) -> list[APIInfo]:
+    """Detect ALL APIs mentioned in the user's prompt.
+
+    Returns a list of matching APIInfo objects, ordered by confidence
+    (direct name matches first, then keyword matches).
+    """
     prompt_lower = prompt.lower()
+    found: list[APIInfo] = []
+    found_names: set[str] = set()
 
     # 1. Direct name matching (highest confidence)
     for key, info in API_REGISTRY.items():
         if key in prompt_lower or info.display_name.lower() in prompt_lower:
-            return info
+            if key not in found_names:
+                found.append(info)
+                found_names.add(key)
 
     # 2. Keyword / synonym matching (require at least 2 hits for confidence)
-    best_api: Optional[str] = None
-    best_hits = 0
     for api_name, keywords in _KEYWORD_MAP.items():
+        if api_name in found_names:
+            continue  # Already matched by direct name
         hits = sum(1 for keyword in keywords if keyword in prompt_lower)
-        if hits > best_hits:
-            best_hits = hits
-            best_api = api_name
 
-    # Single keyword hit is too ambiguous (e.g., "invoices" alone shouldn't mean Stripe)
-    # Require 2+ hits for indirect detection
-    if best_api and best_hits >= 2:
-        return API_REGISTRY[best_api]
+        # 2+ keyword hits = confident match
+        if hits >= 2:
+            found.append(API_REGISTRY[api_name])
+            found_names.add(api_name)
+            continue
 
-    # 1 hit is allowed only for very specific keywords (multi-word phrases)
-    if best_api and best_hits == 1:
-        for keyword in _KEYWORD_MAP[best_api]:
-            if keyword in prompt_lower and " " in keyword:
-                return API_REGISTRY[best_api]
+        # 1 hit allowed only for multi-word phrases (very specific)
+        if hits == 1:
+            for keyword in keywords:
+                if keyword in prompt_lower and " " in keyword:
+                    found.append(API_REGISTRY[api_name])
+                    found_names.add(api_name)
+                    break
 
-    return None
+    return found
 
 
-def generate_env_file(api: Optional[APIInfo]) -> str:
-    """Generate .env.example content with API-specific variable names."""
-    if api is None:
+def generate_env_file(api: Optional[APIInfo] = None, apis: Optional[list[APIInfo]] = None) -> str:
+    """Generate .env.example content with API-specific variable names.
+
+    Supports a single API (backward compat) or a list of APIs (multi-API).
+    """
+    # Normalize to a list
+    api_list: list[APIInfo] = []
+    if apis:
+        api_list = apis
+    elif api:
+        api_list = [api]
+
+    if not api_list:
         return (
             "# Configuration — copy this file to .env and fill in values\n"
             "# Never commit .env to git!\n"
@@ -365,36 +389,46 @@ def generate_env_file(api: Optional[APIInfo]) -> str:
         )
 
     lines = [
-        f"# {api.display_name} API Configuration",
-        f"# Get your key at: {api.key_url}",
-        f"# Docs: {api.docs_url}",
-        "#",
+        "# API Configuration",
         "# Copy this file to .env and fill in your values:",
         "#   cp .env.example .env",
         "",
-        f"{api.env_var_name}=your-key-here",
     ]
 
-    # Add any extra env vars (e.g. JIRA_EMAIL, SPOTIFY_CLIENT_SECRET)
-    for var_name, placeholder in api.extra_env_vars.items():
-        lines.append(f"{var_name}={placeholder}")
+    for i, a in enumerate(api_list):
+        if i > 0:
+            lines.append("")
+        lines.append(f"# ── {a.display_name} ──")
+        lines.append(f"# Get your key at: {a.key_url}")
+        lines.append(f"# Docs: {a.docs_url}")
+        lines.append(f"{a.env_var_name}=your-key-here")
 
-    lines.append("")
-    lines.append(f"# Rate limit: {api.rate_limit}")
+        # Add any extra env vars (e.g. JIRA_EMAIL, SPOTIFY_CLIENT_SECRET)
+        for var_name, placeholder in a.extra_env_vars.items():
+            lines.append(f"{var_name}={placeholder}")
 
-    if not api.free_tier:
-        lines.append("#")
-        lines.append("# ⚠️  WARNING: This API requires a PAID plan")
+        lines.append(f"# Rate limit: {a.rate_limit}")
+        if not a.free_tier:
+            lines.append("# ⚠️  WARNING: This API requires a PAID plan")
 
     lines.append("")
     return "\n".join(lines) + "\n"
 
 
-def generate_setup_guide(api: Optional[APIInfo], server_name: str, language: str = "typescript") -> str:
+def generate_setup_guide(api: Optional[APIInfo] = None, server_name: str = "", language: str = "typescript", apis: Optional[list[APIInfo]] = None) -> str:
     """Generate a SETUP.md with step-by-step instructions for getting
     the API key, configuring the server, and connecting to Claude Desktop.
+
+    Supports a single API (backward compat) or a list of APIs (multi-API).
     """
-    if api is None:
+    # Normalize to a list
+    api_list: list[APIInfo] = []
+    if apis:
+        api_list = apis
+    elif api:
+        api_list = [api]
+
+    if not api_list:
         return _generic_setup_guide(server_name, language)
 
     install_cmd = "npm install" if language == "typescript" else "pip install -r requirements.txt"
@@ -402,60 +436,76 @@ def generate_setup_guide(api: Optional[APIInfo], server_name: str, language: str
     entry_file = "dist/index.js" if language == "typescript" else "server.py"
     runtime = "node" if language == "typescript" else "python"
 
+    api_names = " + ".join(a.display_name for a in api_list)
+
     lines = [
         f"# {server_name} — Setup Guide",
         "",
-        f"This MCP server connects to the **{api.display_name}** API.",
-        "",
-        f"{'✅ Free tier available' if api.free_tier else '⚠️ Paid plan required — see Notes below'}",
-        "",
-        "---",
-        "",
-        f"## Step 1: Get Your {api.display_name} API Key",
+        f"This MCP server connects to: **{api_names}**",
         "",
     ]
 
-    for i, step in enumerate(api.setup_steps, 1):
-        lines.append(f"{i}. {step}")
+    # Step 1: API keys for each
+    step_num = 1
+    for a in api_list:
+        lines.extend([
+            "---",
+            "",
+            f"## Step {step_num}: Get Your {a.display_name} API Key",
+            "",
+            f"{'✅ Free tier available' if a.free_tier else '⚠️ Paid plan required'}",
+            "",
+        ])
 
+        for i, step in enumerate(a.setup_steps, 1):
+            lines.append(f"{i}. {step}")
+
+        if a.scopes:
+            lines.extend([
+                "",
+                "### Required Permissions / Scopes",
+                "",
+            ])
+            for scope in a.scopes:
+                lines.append(f"- `{scope}`")
+
+        lines.append("")
+        step_num += 1
+
+    # Step N: Configure
     lines.extend([
-        "",
         "---",
         "",
-        "## Step 2: Configure Your Server",
+        f"## Step {step_num}: Configure Your Server",
         "",
         "```bash",
         "cp .env.example .env",
         "```",
         "",
-        f"Open `.env` in your editor and paste your {api.display_name} key.",
+        "Open `.env` in your editor and fill in all your API keys.",
         "",
     ])
+    step_num += 1
 
-    if api.scopes:
-        lines.extend([
-            "### Required Permissions / Scopes",
-            "",
-            "Make sure your key has these permissions:",
-            "",
-        ])
-        for scope in api.scopes:
-            lines.append(f"- `{scope}`")
-        lines.append("")
-
+    # Step N+1: Install & Run
     lines.extend([
         "---",
         "",
-        "## Step 3: Install Dependencies & Run",
+        f"## Step {step_num}: Install Dependencies & Run",
         "",
         "```bash",
         install_cmd,
         run_cmd,
         "```",
         "",
+    ])
+    step_num += 1
+
+    # Step N+2: Test
+    lines.extend([
         "---",
         "",
-        "## Step 4: Test with MCP Inspector",
+        f"## Step {step_num}: Test with MCP Inspector",
         "",
         "```bash",
         "npx @modelcontextprotocol/inspector",
@@ -463,9 +513,15 @@ def generate_setup_guide(api: Optional[APIInfo], server_name: str, language: str
         "",
         "This opens a web UI where you can test each tool interactively.",
         "",
+    ])
+    step_num += 1
+
+    # Step N+3: Claude Desktop
+    env_block = ",\n".join(f'        "{a.env_var_name}": "your-key-here"' for a in api_list)
+    lines.extend([
         "---",
         "",
-        "## Step 5: Add to Claude Desktop",
+        f"## Step {step_num}: Add to Claude Desktop",
         "",
         "Edit your Claude Desktop config file (`claude_desktop_config.json`):",
         "",
@@ -476,7 +532,7 @@ def generate_setup_guide(api: Optional[APIInfo], server_name: str, language: str
         f'      "command": "{runtime}",',
         f'      "args": ["{entry_file}"],',
         '      "env": {',
-        f'        "{api.env_var_name}": "your-key-here"',
+        f'{env_block}',
         '      }',
         '    }',
         '  }',
@@ -487,23 +543,21 @@ def generate_setup_guide(api: Optional[APIInfo], server_name: str, language: str
         "- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`",
         "- Windows: `%APPDATA%\\Claude\\claude_desktop_config.json`",
         "",
-        "---",
-        "",
-        "## Rate Limits",
-        "",
-        f"{api.rate_limit}",
-        "",
     ])
 
-    if api.notes:
-        lines.extend([
-            "---",
-            "",
-            "## Notes",
-            "",
-            f"{api.notes}",
-            "",
-        ])
+    # Rate limits
+    lines.extend(["---", "", "## Rate Limits", ""])
+    for a in api_list:
+        lines.append(f"- **{a.display_name}:** {a.rate_limit}")
+    lines.append("")
+
+    # Notes
+    notes = [a for a in api_list if a.notes]
+    if notes:
+        lines.extend(["---", "", "## Notes", ""])
+        for a in notes:
+            lines.append(f"**{a.display_name}:** {a.notes}")
+            lines.append("")
 
     lines.extend([
         "---",

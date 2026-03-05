@@ -40,3 +40,6 @@ output/
 # Private docs (not for GitHub)
 DEVELOPER_HANDBOOK.md
 PROJECT_BREAKDOWN.md
+LLM_GUIDE.md
+OPENAI_SETUP_GUIDE.md
+COMMAND_GUIDE.md

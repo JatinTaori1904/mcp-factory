@@ -236,6 +236,7 @@ class TestCreateServerAPI:
             SimpleNamespace(name="tool_b", description="Tool B", annotations=SimpleNamespace(read_only=False)),
         ]
         mock_analysis.api_info = None
+        mock_analysis.api_infos = []
         mock_gen.analyze_prompt.return_value = mock_analysis
 
         mock_result = MagicMock()
@@ -302,6 +303,7 @@ class TestCreateServerAPI:
         mock_analysis.tool_names = ["read"]
         mock_analysis.tools = [SimpleNamespace(name="read", description="Read", annotations=SimpleNamespace(read_only=True))]
         mock_analysis.api_info = None
+        mock_analysis.api_infos = []
         mock_gen.analyze_prompt.return_value = mock_analysis
 
         mock_result = MagicMock()
@@ -342,6 +344,7 @@ class TestCreateServerAPI:
         mock_analysis.tool_names = ["gh_list"]
         mock_analysis.tools = [SimpleNamespace(name="gh_list", description="List repos", annotations=SimpleNamespace(read_only=True))]
         mock_analysis.api_info = mock_api_info
+        mock_analysis.api_infos = [mock_api_info]
         mock_gen.analyze_prompt.return_value = mock_analysis
 
         mock_result = MagicMock()

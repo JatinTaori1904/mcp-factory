@@ -29,14 +29,48 @@ def get_custom_tool_defs(api_name: str) -> list[dict]:
     return _TOOL_DEFS.get(api_name, [])
 
 
-def get_ts_tools(api_name: str) -> Optional[str]:
-    """Return TypeScript tool code for a known API, or None."""
-    return _TS_TOOLS.get(api_name)
+def get_ts_tools(api_name: str, *, prefixed: bool = True) -> Optional[str]:
+    """Return TypeScript tool code for a known API, or None.
+
+    When ``prefixed=True`` (default), rewrites bare ``BASE_URL`` / ``headers``
+    references to use API-prefixed constants (e.g. ``GITHUB_BASE_URL``).
+    The generated auth setup always creates these prefixed constants, with
+    backward-compat aliases for single-API servers.
+    """
+    code = _TS_TOOLS.get(api_name)
+    if code and prefixed:
+        code = _rewrite_to_prefixed(code, api_name)
+    return code
 
 
-def get_py_tools(api_name: str) -> Optional[str]:
-    """Return Python tool code for a known API, or None."""
-    return _PY_TOOLS.get(api_name)
+def get_py_tools(api_name: str, *, prefixed: bool = True) -> Optional[str]:
+    """Return Python tool code for a known API, or None.
+
+    When ``prefixed=True`` (default), rewrites bare ``BASE_URL`` / ``HEADERS``
+    references to use API-prefixed constants.
+    """
+    code = _PY_TOOLS.get(api_name)
+    if code and prefixed:
+        code = _rewrite_to_prefixed(code, api_name, python=True)
+    return code
+
+
+def _rewrite_to_prefixed(code: str, api_name: str, python: bool = False) -> str:
+    """Rewrite bare BASE_URL/headers references to API-prefixed constants.
+
+    TypeScript: BASE_URL  → GITHUB_BASE_URL, headers → GITHUB_HEADERS
+    Python:     BASE_URL  → GITHUB_BASE_URL, HEADERS → GITHUB_HEADERS
+    """
+    prefix = api_name.upper()
+    # Replace BASE_URL (but not already prefixed versions)
+    import re
+    code = re.sub(r'(?<![A-Z_])BASE_URL(?![A-Z_])', f'{prefix}_BASE_URL', code)
+    if python:
+        code = re.sub(r'(?<![A-Z_])HEADERS(?![A-Z_])', f'{prefix}_HEADERS', code)
+    else:
+        # TypeScript uses lowercase `headers`
+        code = re.sub(r'(?<![a-zA-Z_])headers(?![a-zA-Z_])', f'{prefix}_HEADERS', code)
+    return code
 
 
 # ---------------------------------------------------------------------------

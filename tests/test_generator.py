@@ -414,7 +414,7 @@ class TestPromptParser:
         result = parse_analysis_response(data)
         assert result is not None
         assert result["template"] == "api-wrapper"
-        assert result["api_name"] == "github"
+        assert result["api_names"] == ["github"]
         assert len(result["tools"]) == 1
         assert result["tools"][0]["name"] == "gh_list_repos"
 
@@ -441,7 +441,7 @@ class TestPromptParser:
         }
         result = parse_analysis_response(data)
         assert result is not None
-        assert result["api_name"] is None
+        assert result["api_names"] == []
 
     def test_unknown_api_normalized(self):
         data = {
@@ -453,7 +453,7 @@ class TestPromptParser:
         }
         result = parse_analysis_response(data)
         assert result is not None
-        assert result["api_name"] is None
+        assert result["api_names"] == []
 
     def test_prefix_inferred_from_tool_name(self):
         data = {
@@ -617,6 +617,148 @@ class TestStage2APISpecificTools:
         assert "typescript" in prompt
         assert "github" in prompt
         assert "gh_list_repos" in prompt
+
+
+class TestMultiAPISupport:
+    """Test multi-API server composition — generating a single server with multiple APIs."""
+
+    def setup_method(self):
+        self.generator = MCPGenerator(provider="ollama", model="nonexistent-model-xyz")
+
+    # ---- Detection ----
+
+    def test_detect_multiple_apis_from_prompt(self):
+        """detect_apis should find all mentioned APIs in a prompt."""
+        from mcp_factory.generator.api_registry import detect_apis
+        apis = detect_apis("Build a server that uses GitHub and Slack")
+        names = [a.name for a in apis]
+        assert "github" in names
+        assert "slack" in names
+        assert len(apis) >= 2
+
+    def test_detect_three_apis(self):
+        from mcp_factory.generator.api_registry import detect_apis
+        apis = detect_apis("Integrate GitHub, Slack, and Stripe")
+        names = [a.name for a in apis]
+        assert "github" in names
+        assert "slack" in names
+        assert "stripe" in names
+
+    def test_detect_single_api_still_works(self):
+        from mcp_factory.generator.api_registry import detect_apis
+        apis = detect_apis("Build GitHub tools")
+        assert len(apis) == 1
+        assert apis[0].name == "github"
+
+    def test_detect_no_api(self):
+        from mcp_factory.generator.api_registry import detect_apis
+        apis = detect_apis("Read my local CSV files")
+        assert apis == []
+
+    # ---- Analysis ----
+
+    def test_analyze_multi_api_prompt(self):
+        a = self.generator.analyze_prompt("Build a server with GitHub and Slack integration")
+        assert a.template == "api-wrapper"
+        assert len(a.api_infos) >= 2
+        api_names = [api.name for api in a.api_infos]
+        assert "github" in api_names
+        assert "slack" in api_names
+
+    def test_api_info_backward_compat(self):
+        """api_info property should return first API for backward compat."""
+        a = self.generator.analyze_prompt("GitHub and Slack tools")
+        assert a.api_info is not None
+        assert a.api_info.name in ("github", "slack")
+
+    # ---- Code generation ----
+
+    def test_multi_api_ts_generates_prefixed_auth(self, tmp_path):
+        a = self.generator.analyze_prompt("Build GitHub and Slack tools")
+        r = self.generator.generate(a, "multi-api-server", "typescript", tmp_path)
+        assert r.success
+        content = (r.output_path / "src" / "index.ts").read_text(encoding="utf-8")
+        assert "GITHUB_BASE_URL" in content
+        assert "GITHUB_HEADERS" in content
+        assert "SLACK_BASE_URL" in content
+        assert "SLACK_HEADERS" in content
+        assert "GITHUB_TOKEN" in content
+        assert "SLACK_BOT_TOKEN" in content
+
+    def test_multi_api_py_generates_prefixed_auth(self, tmp_path):
+        a = self.generator.analyze_prompt("Build GitHub and Slack tools")
+        r = self.generator.generate(a, "multi-api-server", "python", tmp_path)
+        assert r.success
+        content = (r.output_path / "server.py").read_text(encoding="utf-8")
+        assert "GITHUB_BASE_URL" in content
+        assert "GITHUB_HEADERS" in content
+        assert "SLACK_BASE_URL" in content
+        assert "SLACK_HEADERS" in content
+
+    def test_multi_api_env_file(self, tmp_path):
+        a = self.generator.analyze_prompt("GitHub and Stripe integration")
+        r = self.generator.generate(a, "multi-env", "typescript", tmp_path)
+        assert r.success
+        env = (r.output_path / ".env.example").read_text(encoding="utf-8")
+        assert "GITHUB_TOKEN" in env
+        assert "STRIPE_SECRET_KEY" in env
+
+    def test_multi_api_setup_guide(self, tmp_path):
+        a = self.generator.analyze_prompt("GitHub and Slack tools")
+        r = self.generator.generate(a, "multi-setup", "typescript", tmp_path)
+        assert r.success
+        setup = (r.output_path / "SETUP.md").read_text(encoding="utf-8")
+        assert "GitHub" in setup
+        assert "Slack" in setup
+
+    def test_multi_api_tools_from_both_apis(self, tmp_path):
+        a = self.generator.analyze_prompt("Build GitHub and Slack tools")
+        r = self.generator.generate(a, "multi-tools", "typescript", tmp_path)
+        assert r.success
+        content = (r.output_path / "src" / "index.ts").read_text(encoding="utf-8")
+        # Should have tools from both APIs
+        assert "gh_list_repos" in content
+        assert "slack_list_channels" in content
+
+    def test_single_api_backward_compat_aliases(self, tmp_path):
+        """Single-API servers should still generate BASE_URL and headers aliases."""
+        a = self.generator.analyze_prompt("Build GitHub API tools")
+        r = self.generator.generate(a, "single-api", "typescript", tmp_path)
+        assert r.success
+        content = (r.output_path / "src" / "index.ts").read_text(encoding="utf-8")
+        assert "GITHUB_BASE_URL" in content
+        assert "const BASE_URL = GITHUB_BASE_URL" in content
+
+    # ---- Parser ----
+
+    def test_parser_handles_api_names_array(self):
+        """parse_analysis_response should handle both old api_name and new api_names."""
+        from mcp_factory.llm.prompts import parse_analysis_response
+        data = {
+            "intent": "Multi-API server",
+            "template": "api-wrapper",
+            "api_names": ["github", "slack"],
+            "prefix": "multi_",
+            "tools": [{"name": "gh_list", "description": "List repos"}],
+        }
+        result = parse_analysis_response(data)
+        assert result is not None
+        assert result["api_names"] == ["github", "slack"]
+
+    def test_parser_filters_invalid_api_names(self):
+        from mcp_factory.llm.prompts import parse_analysis_response
+        data = {
+            "intent": "test",
+            "template": "api-wrapper",
+            "api_names": ["github", "invalid-api", "slack"],
+            "prefix": "x_",
+            "tools": [{"name": "x_get", "description": "Get"}],
+        }
+        result = parse_analysis_response(data)
+        assert result is not None
+        assert "invalid-api" not in result["api_names"]
+        assert "github" in result["api_names"]
+        assert "slack" in result["api_names"]
 
 
 class TestFallbackChain:

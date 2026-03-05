@@ -37,9 +37,11 @@ Rules:
   - Each tool gets MCP annotations: read_only, destructive, idempotent, open_world.
   - Set read_only=false and destructive=true for any tool that modifies data.
   - Set open_world=true for tools that reach external services.
-  - If the request mentions a known API, set api_name to that API's name.
-  - If no known API is mentioned but it's clearly an API task, set api_name to null.
-  - prefix should be 2-5 chars + underscore, derived from the API or domain.
+  - If the request mentions known APIs, list ALL of them in api_names (e.g. ["github", "slack"]).
+  - If only one API is mentioned, still use an array: ["github"].
+  - If no known API is mentioned, set api_names to [].
+  - prefix should be 2-5 chars + underscore, derived from the primary API or domain.
+  - For multi-API servers, include tools for EACH API with distinct prefixes (gh_, slack_, etc.).
 
 Return ONLY valid JSON with NO extra text.\
 """
@@ -53,7 +55,7 @@ Return exactly this JSON structure:
 {{
   "intent": "one-line summary of what the user wants",
   "template": "file-reader|database-connector|api-wrapper|web-scraper|document-processor|auth-server|data-pipeline|notification-hub",
-  "api_name": "github|slack|openai|stripe|notion|spotify|google|twitter|discord|linear|jira|null",
+  "api_names": ["github", "slack"],
   "prefix": "short_",
   "suggested_name": "kebab-case-server-name",
   "tools": [
@@ -122,17 +124,19 @@ def parse_analysis_response(data: dict) -> Optional[dict]:
     if not tools:
         return None
 
-    # Normalize api_name
-    api_name = data.get("api_name")
-    if api_name in (None, "null", "none", ""):
-        api_name = None
-
+    # Normalize api_names (support both old "api_name" and new "api_names")
     valid_apis = {
         "github", "slack", "openai", "stripe", "notion",
         "spotify", "google", "twitter", "discord", "linear", "jira",
     }
-    if api_name and api_name not in valid_apis:
-        api_name = None
+
+    api_names: list[str] = []
+    raw_names = data.get("api_names", data.get("api_name"))
+    if isinstance(raw_names, list):
+        api_names = [n for n in raw_names if isinstance(n, str) and n in valid_apis]
+    elif isinstance(raw_names, str) and raw_names not in ("null", "none", ""):
+        if raw_names in valid_apis:
+            api_names = [raw_names]
 
     # Normalize prefix
     prefix = data.get("prefix", "").strip()
@@ -142,12 +146,13 @@ def parse_analysis_response(data: dict) -> Optional[dict]:
     # Normalize suggested_name
     suggested_name = data.get("suggested_name", "").strip()
     if not suggested_name:
-        suggested_name = f"{api_name or template}-mcp-server"
+        primary = api_names[0] if api_names else template
+        suggested_name = f"{primary}-mcp-server"
 
     return {
         "intent": intent.strip(),
         "template": template,
-        "api_name": api_name,
+        "api_names": api_names,
         "prefix": prefix,
         "suggested_name": suggested_name[:30],
         "tools": tools,
@@ -181,16 +186,16 @@ TOOL_LOGIC_USER_PROMPT = """\
 Generate {language} MCP tool implementations for this server:
 
 Server purpose: {intent}
-API: {api_name}
-Base URL: {base_url}
+APIs: {api_names}
+
+{api_vars_section}
 
 Tools to implement:
 {tool_specs}
 
 Available variables:
-  - BASE_URL: string — the API base URL
-  - headers: object  — pre-configured auth headers (Authorization/API key already set)
   - errorResponse(msg, hint?) — helper function to return MCP error responses
+  - Each API has its own prefixed constants (see above)
 
 Return JSON:
 {{
@@ -200,27 +205,59 @@ Return JSON:
       "code": "server.tool(...) or @mcp.tool() complete implementation"
     }}
   ]
-}}\
+}}\"
 """
 
 
 def build_tool_logic_prompt(
     language: str,
     intent: str,
-    api_name: str | None,
-    base_url: str,
-    tools: list[dict],
+    api_name: str | None = None,
+    base_url: str = "",
+    tools: list[dict] | None = None,
+    *,
+    api_names: list[str] | None = None,
+    api_vars: dict[str, dict[str, str]] | None = None,
 ) -> str:
-    """Build a user prompt for LLM tool logic generation."""
+    """Build a user prompt for LLM tool logic generation.
+
+    Supports the old single-API interface (api_name/base_url) for backward
+    compatibility, and the new multi-API interface (api_names/api_vars).
+    """
+    tools = tools or []
     tool_specs = "\n".join(
         f"  - {t['name']}: {t['description']} "
         f"(readOnly={t.get('read_only', True)}, destructive={t.get('destructive', False)})"
         for t in tools
     )
+
+    # Build api_vars_section
+    if api_vars:
+        parts = []
+        for name, info in api_vars.items():
+            prefix = name.upper()
+            parts.append(
+                f"  {name}: {prefix}_BASE_URL = \"{info.get('base_url', '')}\""
+                f"  /  {prefix}_HEADERS (pre-configured auth)"
+            )
+        api_vars_section = "Per-API variables:\n" + "\n".join(parts)
+    elif base_url:
+        api_vars_section = f"Available variables:\n  BASE_URL = \"{base_url}\"\n  headers (pre-configured auth)"
+    else:
+        api_vars_section = "No API-specific variables."
+
+    # Determine api_names display
+    if api_names:
+        api_names_str = ", ".join(api_names)
+    elif api_name:
+        api_names_str = api_name
+    else:
+        api_names_str = "custom/unknown"
+
     return TOOL_LOGIC_USER_PROMPT.format(
         language=language,
         intent=intent,
-        api_name=api_name or "custom/unknown",
-        base_url=base_url,
+        api_names=api_names_str,
+        api_vars_section=api_vars_section,
         tool_specs=tool_specs,
     )
