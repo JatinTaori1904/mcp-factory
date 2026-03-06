@@ -42,7 +42,7 @@ class MCPValidator:
             result.errors.append("Missing package.json")
         else:
             try:
-                pkg = json.loads(pkg_path.read_text())
+                pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
                 if "@modelcontextprotocol/sdk" not in pkg.get("dependencies", {}):
                     result.warnings.append("Missing @modelcontextprotocol/sdk dependency")
             except json.JSONDecodeError:
@@ -55,7 +55,7 @@ class MCPValidator:
             result.is_valid = False
             result.errors.append("Missing src/index.ts")
         else:
-            content = index_path.read_text()
+            content = index_path.read_text(encoding="utf-8")
             if "McpServer" not in content and "Server" not in content:
                 result.warnings.append("No MCP Server class found in index.ts")
             if "server.tool" not in content:
@@ -84,7 +84,7 @@ class MCPValidator:
             result.is_valid = False
             result.errors.append("Missing server.py")
         else:
-            content = server_py.read_text()
+            content = server_py.read_text(encoding="utf-8")
             # Check Python syntax
             try:
                 ast.parse(content)
@@ -126,7 +126,7 @@ class MCPValidator:
 
         if env_example.exists() and not setup_md.exists():
             # If there are env vars but no SETUP.md, warn
-            content = env_example.read_text() if env_example.exists() else ""
+            content = env_example.read_text(encoding="utf-8") if env_example.exists() else ""
             if "API" in content.upper() or "TOKEN" in content.upper() or "KEY" in content.upper():
                 result.warnings.append(
                     "Missing SETUP.md — add step-by-step API key instructions for users"
