@@ -120,7 +120,7 @@ TEMPLATE_QUESTIONS: dict[str, list[FollowUpQuestion]] = {
         FollowUpQuestion(
             "Which API do you want to integrate with?",
             "api_name",
-            ["GitHub", "Slack", "Stripe", "Notion", "Discord", "Other"],
+            ["GitHub", "Slack", "Stripe", "Notion", "Discord", "LinkedIn", "Other"],
         ),
         FollowUpQuestion(
             "What operations do you need?",
