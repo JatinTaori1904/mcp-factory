@@ -28,7 +28,7 @@ You know these templates:
   8. notification-hub — Multi-channel notifications (email, webhook, log)
 
 You know these APIs (use the exact name if detected):
-  github, slack, openai, stripe, notion, spotify, google, twitter, discord, linear, jira
+  github, slack, openai, stripe, notion, spotify, google, twitter, discord, linear, jira, linkedin
 
 Rules:
   - Pick exactly ONE template that best matches the request.
@@ -128,6 +128,7 @@ def parse_analysis_response(data: dict) -> Optional[dict]:
     valid_apis = {
         "github", "slack", "openai", "stripe", "notion",
         "spotify", "google", "twitter", "discord", "linear", "jira",
+        "linkedin",
     }
 
     api_names: list[str] = []

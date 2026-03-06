@@ -528,11 +528,12 @@ class TestEdgeCases:
         assert "20" in resp.text  # server count
         assert "server-0" in resp.text
 
-    def test_api_page_has_11_apis(self, client):
-        """The API page should list all 11 supported APIs."""
+    def test_api_page_has_12_apis(self, client):
+        """The API page should list all 12 supported APIs."""
         resp = client.get("/apis")
         html = resp.text
         api_names = ["GitHub", "Slack", "OpenAI", "Stripe", "Notion",
-                      "Spotify", "Google", "Discord", "Linear", "Jira"]
+                      "Spotify", "Google", "Discord", "Linear", "Jira",
+                      "LinkedIn"]
         for api in api_names:
             assert api in html, f"{api} not found on /apis page"

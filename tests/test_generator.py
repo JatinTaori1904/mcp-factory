@@ -309,7 +309,7 @@ class TestAPIRegistry:
     def test_get_supported_apis(self):
         from mcp_factory.generator.api_registry import get_supported_apis
         apis = get_supported_apis()
-        assert len(apis) == 11
+        assert len(apis) == 12
         names = [a["name"] for a in apis]
         assert "github" in names
         assert "slack" in names

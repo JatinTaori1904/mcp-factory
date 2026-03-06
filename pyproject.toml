@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prompt2mcp"
-version = "0.5.0"
+version = "0.5.1"
 description = "Build MCP servers from natural language prompts — local-first, privacy-focused"
 readme = "README.md"
 requires-python = ">=3.10"

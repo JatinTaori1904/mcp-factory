@@ -290,6 +290,29 @@ API_REGISTRY: dict[str, APIInfo] = {
             "JIRA_BASE_URL": "https://your-domain.atlassian.net",
         },
     ),
+    "linkedin": APIInfo(
+        name="linkedin",
+        display_name="LinkedIn",
+        base_url="https://api.linkedin.com/v2",
+        auth_type="oauth2",
+        env_var_name="LINKEDIN_ACCESS_TOKEN",
+        key_url="https://www.linkedin.com/developers/apps",
+        docs_url="https://learn.microsoft.com/en-us/linkedin/",
+        free_tier=True,
+        scopes=["r_liteprofile", "r_emailaddress", "w_member_social"],
+        setup_steps=[
+            "Go to https://www.linkedin.com/developers/apps",
+            "Click 'Create App' and fill in the details",
+            "Under 'Auth' tab, add OAuth 2.0 redirect URL",
+            "Request access to 'Share on LinkedIn' and 'Sign In with LinkedIn' products",
+            "Copy the Client ID and Client Secret",
+            "Complete the OAuth 2.0 flow to obtain an access token",
+            "In your .env file, set:",
+            "  LINKEDIN_ACCESS_TOKEN=your_access_token_here",
+        ],
+        rate_limit="100 requests/day for most endpoints",
+        notes="Requires OAuth 2.0 three-legged flow. Access tokens expire; use refresh tokens for long-lived access.",
+    ),
 }
 
 # Keyword → API mapping for indirect detection
@@ -305,6 +328,7 @@ _KEYWORD_MAP: dict[str, list[str]] = {
     "discord": ["discord bot", "discord server", "discord channel"],
     "linear":  ["linear issues", "linear projects", "linear tickets"],
     "jira":    ["jira ticket", "jira issue", "jira board", "atlassian", "confluence"],
+    "linkedin": ["linkedin post", "linkedin profile", "linkedin share", "linkedin company", "linkedin article"],
 }
 
 

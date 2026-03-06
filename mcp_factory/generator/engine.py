@@ -96,6 +96,7 @@ TEMPLATE_KEYWORDS = {
         "url", "oauth", "token", "graphql",
         "github", "slack", "stripe", "notion", "discord",
         "openai", "spotify", "google", "twitter", "linear", "jira",
+        "linkedin",
     ],
     "web-scraper": [
         "scrape", "crawl", "website", "web", "html", "extract",
