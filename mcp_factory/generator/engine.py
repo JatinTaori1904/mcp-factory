@@ -2659,7 +2659,7 @@ server.tool(
   "Make an HTTP POST request with a JSON body. Returns status code and response body.",
   {
     url: z.string().describe("Full URL or path appended to BASE_URL"),
-    body: z.string().describe("JSON request body. Example: '{\\\\"name\\\\": \\\\"test\\\\"}'"),
+    body: z.string().describe("JSON request body as a string"),
     extraHeaders: z.record(z.string()).optional().describe("Additional request headers"),
   },
   { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
